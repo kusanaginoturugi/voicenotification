@@ -17,7 +17,7 @@ Android で以下を日本語 TTS で読み上げる常駐アプリ。
 - [x] チャイム。内蔵 6 種 + 任意ファイル指定。MML から合成
 - [x] Pixel 8a（Android 17）で TTS 動作確認
 - [x] VOICEVOX 対応（複数 URL フェイルオーバー、端末 TTS フォールバック）
-- [ ] Tailscale 経由でスマホから VOICEVOX に届くことを確認
+- [x] Tailscale 経由でスマホから VOICEVOX に届くことを確認（2026-09-17、ずんだもんで読み上げ成功）
 - [ ] 会社 Windows 機にも VOICEVOX を置いて 2 台目の URL にする
 - [ ] 時報・予定・ニュースの定期発火を実機で長時間確認
 - [ ] JNR チャイムの旋律を耳で検証して MML を詰める
@@ -37,7 +37,10 @@ Android で以下を日本語 TTS で読み上げる常駐アプリ。
 - 生成スクリプトを MML ベースに置き換え
 - 自宅 PC に VOICEVOX 0.25.2 を Docker で起動（`127.0.0.1:50021`、`--restart unless-stopped`）
 - `RemoteTts` を追加。audio_query → synthesis の 2 段 API。文単位に分割して合成と再生をパイプライン
-- 自宅 PC の Tailscale は停止中だった。`sudo tailscale up --operator=$USER` が必要
+- 自宅 PC の Tailscale は停止中だった。`sudo tailscale up` と `sudo tailscale set --operator=onoue` を実施
+- `tailscale serve --bg --tcp 50021 tcp://127.0.0.1:50021` で tailnet 内に公開
+- スマホの Tailscale ログインは Firefox が既定ブラウザだと反応しない。Chromium に変えて解決
+- `File.createTempFile` の接頭辞が 2 文字以下で例外になり、ずっと端末 TTS に落ちていたバグを修正
 
 ## 引き継ぎ
 

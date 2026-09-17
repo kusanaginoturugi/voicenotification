@@ -69,7 +69,7 @@ object RemoteTts {
         c.outputStream.use { it.write(query.toString().toByteArray()) }
         if (c.responseCode != 200) error("synthesis HTTP ${c.responseCode}")
         val dir = File(context.cacheDir, "tts").apply { mkdirs() }
-        val out = File.createTempFile("v", ".wav", dir)
+        val out = File.createTempFile("voice", ".wav", dir)
         c.inputStream.use { i -> out.outputStream().use { o -> i.copyTo(o) } }
         c.disconnect()
         return out
