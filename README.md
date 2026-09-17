@@ -59,9 +59,11 @@ app/src/main/kotlin/biz/showway/voicenotification/
 まず 1 つだけ鳴らして試すのが早い。
 
 ```sh
-python3 tools/gen_chime.py -m "t120 l8 o6 c e g > c" -o /tmp/x.wav && mpv /tmp/x.wav
-python3 tools/gen_chime.py -m "..." -i bell -t 1.2 -o /tmp/x.wav   # 音色 bell、余韻 1.2 秒
+tools/play_chime.sh "t120 l8 o6 c e g > c"
+tools/play_chime.sh -i bell -t 1.2 "t150 l16 o6 c <g8.> e8. c2"   # 音色 bell、余韻 1.2 秒
 ```
+
+WAV が欲しいときは `gen_chime.py -m "..." -o x.wav`。
 
 MML の文法は `t` テンポ、`l` 既定音長、`o` オクターブ、`<` `>` でオクターブ移動、`v` 音量、`r` 休符、`+`/`-` で半音、`.` で付点、`&` でタイ。
 詳しくはスクリプト冒頭の docstring を見る。
