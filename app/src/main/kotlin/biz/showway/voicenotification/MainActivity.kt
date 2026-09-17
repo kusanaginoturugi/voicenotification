@@ -68,7 +68,7 @@ fun Screen() {
     var calendar by remember { mutableStateOf(prefs.calendarEnabled) }
     var calendarLead by remember { mutableStateOf(prefs.calendarLeadMinutes.toString()) }
     var news by remember { mutableStateOf(prefs.newsEnabled) }
-    var newsInterval by remember { mutableStateOf(prefs.newsIntervalMinutes.toString()) }
+    var newsHours by remember { mutableStateOf(prefs.newsHours) }
     var newsCount by remember { mutableStateOf(prefs.newsCount.toString()) }
     var newsUrl by remember { mutableStateOf(prefs.newsUrl) }
     var newsOnlyMusic by remember { mutableStateOf(prefs.newsOnlyWhenMusic) }
@@ -256,10 +256,20 @@ fun Screen() {
                 }
             }
             item {
-                NumberField("間隔（分）", newsInterval) {
-                    newsInterval = it
-                    it.toIntOrNull()?.let { n -> prefs.newsIntervalMinutes = n; Scheduler.reschedule(ctx) }
-                }
+                OutlinedTextField(
+                    value = newsHours,
+                    onValueChange = { v ->
+                        if (v.all { it.isDigit() || it == ',' || it == ' ' }) {
+                            newsHours = v
+                            prefs.newsHours = v
+                            Scheduler.reschedule(ctx)
+                        }
+                    },
+                    label = { Text("読む時刻（時、カンマ区切り）") },
+                    placeholder = { Text(Prefs.DEFAULT_NEWS_HOURS) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
             }
             item {
                 NumberField("件数", newsCount) {

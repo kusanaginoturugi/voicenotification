@@ -1,9 +1,8 @@
 [Unit]
-Description=voicenews.service を 20 分おきに実行
+Description=voicenews.service をニュース時刻の 5 分前に実行
 
 [Timer]
-OnBootSec=3min
-OnUnitActiveSec=20min
+OnCalendar=*-*-* 08,11,14,17:55:00
 Persistent=true
 
 [Install]

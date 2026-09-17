@@ -7,7 +7,7 @@ Android の通知・時報・予定・ニュースを日本語で読み上げる
 - 通知の読み上げ: 選んだアプリ（LINE など）の通知が来たら、アプリ名と本文を読む
 - 時報: 毎時 0 分に時刻と、その後 1 時間以内の予定を読む
 - 予定: 端末に同期済みのカレンダー（Google カレンダー含む）の予定を N 分前に読む
-- ニュース: 一定間隔でニュースを読む。PC 側で LocalLLM が要約したテキストか、RSS（既定は NHK）の見出しと概要。音楽再生中のみ、の設定あり
+- ニュース: 決まった時刻（既定は 9、12、15、18 時）にニュースを読む。PC 側で LocalLLM が要約したテキストか、RSS（既定は NHK）の見出しと概要。音楽再生中のみ、の設定あり
 - ニュースの前にチャイム。内蔵のオルゴール音 3 種か、端末内の任意の音声ファイル
 - 読み上げ中は音楽の音量を下げる（設定で一時停止に変更可）
 - 音声合成を VOICEVOX に切り替えられる。URL を複数登録して生きてる方を使い、全滅なら端末の TTS
@@ -65,9 +65,14 @@ curl -s localhost:50021/speakers | jq '.[] | {name, styles: [.styles[] | {id, na
 RSS をそのまま読むと長いので、PC 側で llama-server に要約させたテキストを読ませる。
 
 ```
-voicenews.timer (20 分おき) → tools/news_summary.sh → RSS 取得 → llama-server で 3〜4 文に要約
+voicenews.timer (8:55 11:55 14:55 17:55) → tools/news_summary.sh
+  → RSS 取得 → 未使用の記事だけ選ぶ → llama-server で 3〜4 文に要約
   → ~/.local/share/voicenews/news.txt → voicenews-http (127.0.0.1:8090) → tailscale serve → スマホ
 ```
+
+一度要約に使った記事の guid は `~/.local/state/voicenews/seen.txt` に記録して、次回からは除外する。
+新しい記事が 1 件も無ければ「前回から新しいニュースはありません。」を書く。
+既読をリセットしたいときは `seen.txt` を消す。
 
 PC 側のセットアップ（curl、jq、xmllint、python3 と、OpenAI 互換 API の llama-server が必要）:
 
@@ -86,8 +91,11 @@ https://www.nhk.or.jp/rss/news/cat0.xml
 ```
 
 - 要約だけ試すなら `tools/news_summary.sh && cat ~/.local/share/voicenews/news.txt`
-- RSS、モデル、件数、プロンプトは環境変数 `RSS_URL` `LLM_URL` `LLM_MODEL` `NEWS_COUNT` `PROMPT` で差し替える。常用するなら `systemctl --user edit voicenews.service` で `Environment=` を足す
-- gemma-4 系は思考モードだと出力が空になるので、スクリプトで `enable_thinking:false` を渡している
+- 要約の時刻はアプリ側のニュース時刻に合わせて、`tools/systemd/voicenews.timer` の `OnCalendar` を 5 分前に揃える
+- RSS、モデル、件数、プロンプトは環境変数 `RSS_URLS`（空白区切りで複数可）`LLM_URL` `LLM_MODEL` `NEWS_COUNT` `PROMPT` で差し替える。常用するなら `systemctl --user edit voicenews.service` で `Environment=` を足す
+- 既定モデルは `gemma-4-12b-it-qat-imatrix`。日本語 imatrix 量子化で、思考モードがオフ。llama-server は同時に 1 モデルしか載せない設定なので、ブラウザ拡張と同じモデルにしてモデル入れ替えの待ちを避けている
+- 思考モードが有効なモデルだと出力が空になるので、スクリプトで `enable_thinking:false` を渡している
+- LLM は 300 秒でタイムアウト。長さ制限で切れたら最後の「。」までに揃える
 - `news.txt` が 2 時間より古ければ要約が止まっているとみなして、アプリは次の URL（RSS）に回す
 - PC が落ちていても RSS に落ちるので、ニュース自体は止まらない
 

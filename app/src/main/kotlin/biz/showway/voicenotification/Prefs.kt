@@ -31,9 +31,10 @@ class Prefs(context: Context) {
         get() = sp.getBoolean("news_enabled", false)
         set(v) = sp.edit().putBoolean("news_enabled", v).apply()
 
-    var newsIntervalMinutes: Int
-        get() = sp.getInt("news_interval", 30)
-        set(v) = sp.edit().putInt("news_interval", v).apply()
+    /** ニュースを読む時刻（時）。カンマ区切り */
+    var newsHours: String
+        get() = sp.getString("news_hours", DEFAULT_NEWS_HOURS) ?: DEFAULT_NEWS_HOURS
+        set(v) = sp.edit().putString("news_hours", v).apply()
 
     var newsCount: Int
         get() = sp.getInt("news_count", 5)
@@ -79,6 +80,7 @@ class Prefs(context: Context) {
         set(v) = sp.edit().putStringSet("announced_events", v.toSet()).apply()
 
     companion object {
+        const val DEFAULT_NEWS_HOURS = "9,12,15,18"
         const val DEFAULT_NEWS_URL = "https://www.nhk.or.jp/rss/news/cat0.xml"
     }
 }

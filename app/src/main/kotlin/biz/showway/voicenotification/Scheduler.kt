@@ -30,7 +30,7 @@ object Scheduler {
         val at = when (action) {
             ACTION_CHIME -> nextHour()
             ACTION_CALENDAR -> System.currentTimeMillis() + CALENDAR_SCAN_MINUTES * 60_000
-            ACTION_NEWS -> System.currentTimeMillis() + prefs.newsIntervalMinutes.coerceAtLeast(1) * 60_000L
+            ACTION_NEWS -> nextAtHours(parseHours(prefs.newsHours)) ?: return
             else -> return
         }
         val am = context.getSystemService(AlarmManager::class.java)
@@ -53,6 +53,27 @@ object Scheduler {
             Intent(context, AlarmReceiver::class.java).setAction(action),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
+
+    /** "9, 12,15 18" → [9, 12, 15, 18]。0〜23 以外は捨てる */
+    fun parseHours(text: String): List<Int> =
+        text.split(Regex("[^0-9]+")).mapNotNull { it.toIntOrNull() }.filter { it in 0..23 }.distinct().sorted()
+
+    /** hours のうち、今より後で一番近い時刻。今日の分が終わっていれば翌日の最初 */
+    private fun nextAtHours(hours: List<Int>): Long? {
+        if (hours.isEmpty()) return null
+        val now = Calendar.getInstance()
+        val at = (now.clone() as Calendar).apply {
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }
+        val h = hours.firstOrNull { at.apply { set(Calendar.HOUR_OF_DAY, it) }.after(now) }
+        if (h == null) {
+            at.set(Calendar.HOUR_OF_DAY, hours.first())
+            at.add(Calendar.DAY_OF_MONTH, 1)
+        }
+        return at.timeInMillis
+    }
 
     private fun nextHour(): Long = Calendar.getInstance().apply {
         set(Calendar.MINUTE, 0)
