@@ -1,5 +1,6 @@
 package biz.showway.voicenotification
 
+import android.util.Log
 import android.util.Xml
 import org.xmlpull.v1.XmlPullParser
 import java.net.HttpURLConnection
@@ -8,19 +9,48 @@ import java.net.URL
 data class NewsItem(val title: String, val description: String)
 
 object NewsSource {
-    /** RSS 2.0 / Atom の item を先頭から count 件返す。失敗したら例外 */
-    fun fetch(url: String, count: Int): List<NewsItem> {
+    private const val TAG = "NewsSource"
+
+    /** 要約テキストがこれより古ければ使わずに次の URL へ回す（要約側が止まっているとみなす） */
+    private const val SUMMARY_MAX_AGE_MS = 2 * 60 * 60 * 1000L
+
+    /**
+     * URL の中身を読み上げ文にする。RSS / Atom なら先頭 count 件の見出しと概要、
+     * それ以外（要約済みのプレーンテキストなど）はそのまま返す。失敗したら例外
+     */
+    fun fetchSpeech(url: String, count: Int): String {
         val conn = (URL(url).openConnection() as HttpURLConnection).apply {
-            connectTimeout = 10_000
+            connectTimeout = 5_000
             readTimeout = 15_000
             setRequestProperty("User-Agent", "VoiceNotification/0.1")
         }
         try {
             if (conn.responseCode != 200) error("HTTP ${conn.responseCode}")
-            conn.inputStream.use { return parse(it, count) }
+            val body = conn.inputStream.use { it.readBytes() }
+            val text = String(body, Charsets.UTF_8).trim()
+            if (text.isEmpty()) error("empty body")
+            val modified = conn.lastModified
+            if (!text.startsWith("<") && modified > 0 &&
+                System.currentTimeMillis() - modified > SUMMARY_MAX_AGE_MS
+            ) error("stale summary")
+            return if (text.startsWith("<")) toSpeech(parse(body.inputStream(), count)) else text
         } finally {
             conn.disconnect()
         }
+    }
+
+    /** 改行区切りの URL を上から順に試す。全滅なら最後の例外を投げる */
+    fun fetchFirst(urls: String, count: Int): String {
+        var last: Exception? = null
+        for (u in urls.lines().map { it.trim() }.filter { it.isNotEmpty() }) {
+            try {
+                return fetchSpeech(u, count)
+            } catch (e: Exception) {
+                Log.w(TAG, "news fetch failed at $u: ${e.javaClass.simpleName} ${e.message}")
+                last = e
+            }
+        }
+        throw last ?: IllegalStateException("no news url")
     }
 
     private fun parse(input: java.io.InputStream, count: Int): List<NewsItem> {

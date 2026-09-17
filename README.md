@@ -7,7 +7,7 @@ Android の通知・時報・予定・ニュースを日本語で読み上げる
 - 通知の読み上げ: 選んだアプリ（LINE など）の通知が来たら、アプリ名と本文を読む
 - 時報: 毎時 0 分に時刻と、その後 1 時間以内の予定を読む
 - 予定: 端末に同期済みのカレンダー（Google カレンダー含む）の予定を N 分前に読む
-- ニュース: RSS（既定は NHK）を一定間隔で取ってきて見出しと概要を読む。音楽再生中のみ、の設定あり
+- ニュース: 一定間隔でニュースを読む。PC 側で LocalLLM が要約したテキストか、RSS（既定は NHK）の見出しと概要。音楽再生中のみ、の設定あり
 - ニュースの前にチャイム。内蔵のオルゴール音 3 種か、端末内の任意の音声ファイル
 - 読み上げ中は音楽の音量を下げる（設定で一時停止に変更可）
 - 音声合成を VOICEVOX に切り替えられる。URL を複数登録して生きてる方を使い、全滅なら端末の TTS
@@ -60,6 +60,37 @@ curl -s localhost:50021/speakers | jq '.[] | {name, styles: [.styles[] | {id, na
 - 全 URL が落ちていれば自動で端末の TTS に戻る。接続タイムアウトは 1.5 秒なので待ちは短い
 - エンジンは平文 HTTP なので Tailscale の外に出さないこと
 
+## ニュースを LocalLLM で要約する
+
+RSS をそのまま読むと長いので、PC 側で llama-server に要約させたテキストを読ませる。
+
+```
+voicenews.timer (20 分おき) → tools/news_summary.sh → RSS 取得 → llama-server で 3〜4 文に要約
+  → ~/.local/share/voicenews/news.txt → voicenews-http (127.0.0.1:8090) → tailscale serve → スマホ
+```
+
+PC 側のセットアップ（curl、jq、xmllint、python3 と、OpenAI 互換 API の llama-server が必要）:
+
+```sh
+cp tools/systemd/voicenews.service tools/systemd/voicenews.timer tools/systemd/voicenews-http.service ~/.config/systemd/user/
+systemctl --user daemon-reload
+systemctl --user enable --now voicenews.timer voicenews-http.service
+tailscale serve --bg --tcp 8090 tcp://127.0.0.1:8090
+```
+
+スマホ側: ニュースの URL 欄に 1 行 1 つで書く。上から順に試す。
+
+```
+http://<PC の MagicDNS 名>:8090/news.txt
+https://www.nhk.or.jp/rss/news/cat0.xml
+```
+
+- 要約だけ試すなら `tools/news_summary.sh && cat ~/.local/share/voicenews/news.txt`
+- RSS、モデル、件数、プロンプトは環境変数 `RSS_URL` `LLM_URL` `LLM_MODEL` `NEWS_COUNT` `PROMPT` で差し替える。常用するなら `systemctl --user edit voicenews.service` で `Environment=` を足す
+- gemma-4 系は思考モードだと出力が空になるので、スクリプトで `enable_thinking:false` を渡している
+- `news.txt` が 2 時間より古ければ要約が止まっているとみなして、アプリは次の URL（RSS）に回す
+- PC が落ちていても RSS に落ちるので、ニュース自体は止まらない
+
 ## 構成
 
 ```
@@ -70,7 +101,7 @@ app/src/main/kotlin/biz/showway/voicenotification/
   NotificationReader.kt  NotificationListenerService。通知 → 読み上げ
   Scheduler.kt           AlarmManager で時報・予定スキャン・ニュースを発火。Boot 復帰も
   CalendarSource.kt      CalendarContract から予定を取る
-  NewsSource.kt          RSS 取得とパース
+  NewsSource.kt          ニュース取得。RSS はパース、プレーンテキストはそのまま。複数 URL のフェイルオーバー
   Chimes.kt              内蔵チャイムの定義と URI 解決
   RemoteTts.kt           VOICEVOX API で合成して WAV を取る。複数 URL のフェイルオーバー
   VoiceService.kt        常駐フォアグラウンドサービス。アクションを実行して Speaker へ

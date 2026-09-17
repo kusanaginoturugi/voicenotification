@@ -1,0 +1,10 @@
+[Unit]
+Description=voicenews.service を 20 分おきに実行
+
+[Timer]
+OnBootSec=3min
+OnUnitActiveSec=20min
+Persistent=true
+
+[Install]
+WantedBy=timers.target

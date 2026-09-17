@@ -1,0 +1,10 @@
+[Unit]
+Description=読み上げ用ニューステキストを 127.0.0.1:8090 で配る
+After=network.target
+
+[Service]
+ExecStart=/usr/bin/python3 -m http.server 8090 --bind 127.0.0.1 --directory %h/.local/share/voicenews
+Restart=on-failure
+
+[Install]
+WantedBy=default.target

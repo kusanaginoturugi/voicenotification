@@ -289,8 +289,8 @@ fun Screen() {
                 OutlinedTextField(
                     value = newsUrl,
                     onValueChange = { newsUrl = it; prefs.newsUrl = it.trim() },
-                    label = { Text("RSS の URL") },
-                    singleLine = true,
+                    label = { Text("ニュースの URL（RSS か要約テキスト。1 行 1 つ、上から順に試す）") },
+                    minLines = 2,
                     modifier = Modifier.fillMaxWidth(),
                 )
             }

@@ -103,7 +103,7 @@ class VoiceService : Service() {
         val count = prefs.newsCount.coerceIn(1, 20)
         worker.execute {
             val text = try {
-                NewsSource.toSpeech(NewsSource.fetch(url, count))
+                NewsSource.fetchFirst(url, count)
             } catch (e: Exception) {
                 Log.w(TAG, "news fetch failed", e)
                 if (force) "ニュースの取得に失敗しました。" else return@execute

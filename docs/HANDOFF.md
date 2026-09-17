@@ -19,6 +19,7 @@ Android で以下を日本語 TTS で読み上げる常駐アプリ。
 - [x] VOICEVOX 対応（複数 URL フェイルオーバー、端末 TTS フォールバック）
 - [x] Tailscale 経由でスマホから VOICEVOX に届くことを確認（2026-09-17、ずんだもんで読み上げ成功）
 - [ ] 会社 Windows 機にも VOICEVOX を置いて 2 台目の URL にする
+- [x] ニュースを LocalLLM で要約してから読む（2026-09-17、実機で VOICEVOX 読み上げまで確認）
 - [ ] 時報・予定・ニュースの定期発火を実機で長時間確認
 - [ ] JNR チャイムの旋律を耳で検証して MML を詰める
 - [ ] release ビルドと署名
@@ -41,6 +42,12 @@ Android で以下を日本語 TTS で読み上げる常駐アプリ。
 - `tailscale serve --bg --tcp 50021 tcp://127.0.0.1:50021` で tailnet 内に公開
 - スマホの Tailscale ログインは Firefox が既定ブラウザだと反応しない。Chromium に変えて解決
 - `File.createTempFile` の接頭辞が 2 文字以下で例外になり、ずっと端末 TTS に落ちていたバグを修正
+- RSS をそのまま読むと長いので、PC 側で要約する構成にした
+  - `tools/news_summary.sh` が RSS → llama-server（`gemma-4-12B-it-qat`、127.0.0.1:8080）→ `~/.local/share/voicenews/news.txt`
+  - systemd ユーザーユニット `voicenews.timer`（20 分おき）と `voicenews-http.service`（127.0.0.1:8090）を有効化。linger は元から yes
+  - `tailscale serve --path` のディレクトリ配信は operator でも root が要るので、python の http.server を TCP で中継する形にした
+  - gemma-4 が思考トークンで `max_tokens` を使い切り content が空になったので `enable_thinking:false` を指定。要約は 2〜5 秒
+- NHK の RSS は `news.web.nhk` にリダイレクトされる。curl は `-L` が要る
 
 ## 引き継ぎ
 
@@ -58,9 +65,14 @@ Android で以下を日本語 TTS で読み上げる常駐アプリ。
 - ニュースは「音楽再生中のみ」が既定。`AudioManager.isMusicActive` で判定
 - リモート TTS は `Speaker` の `Job.Remote`。合成が終わるまでキューの先頭で待ち、`file` が null なら端末 TTS に落とす
 - 平文 HTTP を使うため `usesCleartextTraffic="true"`。Tailscale 内でしか使わない前提
+- ニュース URL は改行区切りで複数。レスポンスが `<` で始まれば RSS / Atom としてパース、それ以外はプレーンテキストとしてそのまま読む
+- プレーンテキストは `Last-Modified` が 2 時間より古ければ使わない（要約側の停止検知）
+- adb からの操作: サービスは非公開なので `am start-foreground-service` は通らない。画面を点けて `uiautomator dump` でボタン位置を取り `input tap` する
 
 ### 未確認・既知の問題
 
 - Doze 中の非 exact アラーム（ニュース・予定スキャン）の遅れは未計測
 - LINE の通知内容表示が OFF だと本文は読めない
 - JNR チャイムは自動採譜なので細部の音の抜け・違いがあり得る
+- 要約は LLM なので、事実関係の取り違えや見出しにない補足が混ざる可能性がある
+- llama.cpp.service が落ちていると要約が更新されず、2 時間後から RSS 読み上げに戻る

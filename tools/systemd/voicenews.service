@@ -1,0 +1,7 @@
+[Unit]
+Description=RSS を LocalLLM で要約して読み上げ用テキストを書く
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=%h/src/voicenotification/tools/news_summary.sh
