@@ -60,6 +60,19 @@ class Prefs(context: Context) {
         get() = sp.getString("news_chime_uri", null)
         set(v) = sp.edit().putString("news_chime_uri", v).apply()
 
+    /** VOICEVOX 互換エンジンの URL。改行区切りで複数。空なら端末の TTS */
+    var ttsUrls: String
+        get() = sp.getString("tts_urls", "") ?: ""
+        set(v) = sp.edit().putString("tts_urls", v).apply()
+
+    var ttsSpeaker: Int
+        get() = sp.getInt("tts_speaker", 3)
+        set(v) = sp.edit().putInt("tts_speaker", v).apply()
+
+    var ttsSpeed: Float
+        get() = sp.getFloat("tts_speed", 1.0f)
+        set(v) = sp.edit().putFloat("tts_speed", v).apply()
+
     /** 読み上げ済みの予定。"eventId:beginMillis" の集合 */
     var announcedEvents: Set<String>
         get() = sp.getStringSet("announced_events", emptySet()) ?: emptySet()

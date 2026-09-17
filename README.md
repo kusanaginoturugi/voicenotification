@@ -10,6 +10,7 @@ Android の通知・時報・予定・ニュースを日本語で読み上げる
 - ニュース: RSS（既定は NHK）を一定間隔で取ってきて見出しと概要を読む。音楽再生中のみ、の設定あり
 - ニュースの前にチャイム。内蔵のオルゴール音 3 種か、端末内の任意の音声ファイル
 - 読み上げ中は音楽の音量を下げる（設定で一時停止に変更可）
+- 音声合成を VOICEVOX に切り替えられる。URL を複数登録して生きてる方を使い、全滅なら端末の TTS
 
 ## 必要なもの
 
@@ -37,6 +38,28 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 その後「読み上げサービス」を ON にして、下の一覧から読み上げたいアプリにチェック。
 「テスト」ボタンで声が出れば OK。
 
+## VOICEVOX で読み上げる
+
+端末の Google TTS より自然な声にしたいとき。自宅 PC などで VOICEVOX エンジンを動かして、Tailscale 経由でスマホから叩く。
+
+PC 側:
+
+```sh
+docker run -d --name voicevox --restart unless-stopped \
+  -p 127.0.0.1:50021:50021 voicevox/voicevox_engine:cpu-latest
+sudo tailscale up --operator=$USER
+tailscale serve --bg --tcp 50021 tcp://127.0.0.1:50021   # tailnet 内に 50021 を公開
+curl -s localhost:50021/speakers | jq '.[] | {name, styles: [.styles[] | {id, name}]}'   # 話者 ID 一覧
+```
+
+スマホ側: Tailscale アプリを入れて同じ tailnet にログインし、アプリの「音声合成（VOICEVOX）」に
+`http://<PC の MagicDNS 名>:50021` を書く。複数行書けば上から順に試す。「接続テスト」で疎通を見られる。
+
+- 話者 ID の既定は 3（ずんだもん ノーマル）。速度は 1.0 が等速
+- 長文は文単位に分けて、次の文を合成しながら前の文を再生する
+- 全 URL が落ちていれば自動で端末の TTS に戻る。接続タイムアウトは 1.5 秒なので待ちは短い
+- エンジンは平文 HTTP なので Tailscale の外に出さないこと
+
 ## 構成
 
 ```
@@ -49,6 +72,7 @@ app/src/main/kotlin/biz/showway/voicenotification/
   CalendarSource.kt      CalendarContract から予定を取る
   NewsSource.kt          RSS 取得とパース
   Chimes.kt              内蔵チャイムの定義と URI 解決
+  RemoteTts.kt           VOICEVOX API で合成して WAV を取る。複数 URL のフェイルオーバー
   VoiceService.kt        常駐フォアグラウンドサービス。アクションを実行して Speaker へ
   MainActivity.kt        設定画面（Compose）
 ```

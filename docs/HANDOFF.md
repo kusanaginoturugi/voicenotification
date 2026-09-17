@@ -16,6 +16,9 @@ Android で以下を日本語 TTS で読み上げる常駐アプリ。
 - [x] ニュース（RSS 取得 → TTS）
 - [x] チャイム。内蔵 6 種 + 任意ファイル指定。MML から合成
 - [x] Pixel 8a（Android 17）で TTS 動作確認
+- [x] VOICEVOX 対応（複数 URL フェイルオーバー、端末 TTS フォールバック）
+- [ ] Tailscale 経由でスマホから VOICEVOX に届くことを確認
+- [ ] 会社 Windows 機にも VOICEVOX を置いて 2 台目の URL にする
 - [ ] 時報・予定・ニュースの定期発火を実機で長時間確認
 - [ ] JNR チャイムの旋律を耳で検証して MML を詰める
 - [ ] release ビルドと署名
@@ -32,6 +35,9 @@ Android で以下を日本語 TTS で読み上げる常駐アプリ。
 - チャイム追加。Speaker をチャイム → TTS の直列キューに変更
 - 参考音源 2 つ（RadioChime、JNRChime）を FFT で解析して音程とタイミングを写した
 - 生成スクリプトを MML ベースに置き換え
+- 自宅 PC に VOICEVOX 0.25.2 を Docker で起動（`127.0.0.1:50021`、`--restart unless-stopped`）
+- `RemoteTts` を追加。audio_query → synthesis の 2 段 API。文単位に分割して合成と再生をパイプライン
+- 自宅 PC の Tailscale は停止中だった。`sudo tailscale up --operator=$USER` が必要
 
 ## 引き継ぎ
 
@@ -47,6 +53,8 @@ Android で以下を日本語 TTS で読み上げる常駐アプリ。
 - アラームは `AlarmReceiver` が受けて次回を再登録してから `VoiceService` を叩く。サービス停止中でも exact alarm 経由なら FGS 起動が許される
 - 予定の重複読み上げ防止は `Prefs.announcedEvents` に `eventId:begin` を保存
 - ニュースは「音楽再生中のみ」が既定。`AudioManager.isMusicActive` で判定
+- リモート TTS は `Speaker` の `Job.Remote`。合成が終わるまでキューの先頭で待ち、`file` が null なら端末 TTS に落とす
+- 平文 HTTP を使うため `usesCleartextTraffic="true"`。Tailscale 内でしか使わない前提
 
 ### 未確認・既知の問題
 

@@ -75,6 +75,10 @@ fun Screen() {
     var pauseMusic by remember { mutableStateOf(prefs.pauseMusic) }
     var newsChime by remember { mutableStateOf(Chime.of(prefs.newsChime)) }
     var newsChimeUri by remember { mutableStateOf(prefs.newsChimeUri) }
+    var ttsUrls by remember { mutableStateOf(prefs.ttsUrls) }
+    var ttsSpeaker by remember { mutableStateOf(prefs.ttsSpeaker.toString()) }
+    var ttsSpeed by remember { mutableStateOf(prefs.ttsSpeed.toString()) }
+    var probeResult by remember { mutableStateOf("") }
 
     var listenerOk by remember { mutableStateOf(NotificationReader.isEnabled(ctx)) }
     var calendarOk by remember { mutableStateOf(CalendarSource.hasPermission(ctx)) }
@@ -162,6 +166,54 @@ fun Screen() {
             item {
                 OutlinedButton(onClick = { ctx.startActivity(Intent("com.android.settings.TTS_SETTINGS")) }) {
                     Text("音声（TTS）の設定を開く")
+                }
+            }
+
+            item { Section("音声合成（VOICEVOX）") }
+            item {
+                Text("URL を 1 行に 1 つ。上から順に試して、最初に応答した方を使う。空なら端末の TTS",
+                    style = MaterialTheme.typography.bodySmall)
+            }
+            item {
+                OutlinedTextField(
+                    value = ttsUrls,
+                    onValueChange = { ttsUrls = it; prefs.ttsUrls = it },
+                    label = { Text("エンジンの URL") },
+                    placeholder = { Text("http://13400f.tailb46b1.ts.net:50021") },
+                    minLines = 2,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+            item {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    NumberField("話者 ID", ttsSpeaker) {
+                        ttsSpeaker = it
+                        it.toIntOrNull()?.let { n -> prefs.ttsSpeaker = n }
+                    }
+                    OutlinedTextField(
+                        value = ttsSpeed,
+                        onValueChange = { v ->
+                            if (v.matches(Regex("[0-9]*\\.?[0-9]*"))) {
+                                ttsSpeed = v
+                                v.toFloatOrNull()?.let { f -> prefs.ttsSpeed = f }
+                            }
+                        },
+                        label = { Text("速度") },
+                        singleLine = true,
+                        modifier = Modifier.width(120.dp),
+                    )
+                }
+            }
+            item {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    OutlinedButton(onClick = {
+                        probeResult = "確認中…"
+                        Thread {
+                            val r = RemoteTts.probe(prefs).joinToString("\n") { (u, v) -> "$v  $u" }
+                            (ctx as? ComponentActivity)?.runOnUiThread { probeResult = r.ifEmpty { "URL が空" } }
+                        }.start()
+                    }) { Text("接続テスト") }
+                    Text(probeResult, style = MaterialTheme.typography.bodySmall)
                 }
             }
 

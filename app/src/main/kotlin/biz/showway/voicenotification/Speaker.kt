@@ -11,7 +11,9 @@ import android.os.Looper
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
 import android.util.Log
+import java.io.File
 import java.util.Locale
+import java.util.concurrent.Executors
 
 /**
  * プロセス内で 1 つだけ持つ再生キュー。チャイムと TTS を順番に処理する。
@@ -23,7 +25,14 @@ object Speaker {
     private sealed class Job(val pause: Boolean) {
         class Text(val text: String, pause: Boolean) : Job(pause)
         class Chime(val uri: Uri, pause: Boolean) : Job(pause)
+        /** リモート合成。done になるまで再生は待つ。file が null なら端末 TTS に落とす */
+        class Remote(val text: String, pause: Boolean) : Job(pause) {
+            @Volatile var file: File? = null
+            @Volatile var done = false
+        }
     }
+
+    private val synth = Executors.newSingleThreadExecutor()
 
     private val handler = Handler(Looper.getMainLooper())
     private lateinit var app: Context
@@ -74,7 +83,20 @@ object Speaker {
     fun speak(context: Context, text: String, pause: Boolean = false) {
         if (text.isBlank()) return
         init(context)
-        handler.post { queue.addLast(Job.Text(text, pause)); pump() }
+        val prefs = Prefs(context)
+        if (!RemoteTts.enabled(prefs)) {
+            handler.post { queue.addLast(Job.Text(text, pause)); pump() }
+            return
+        }
+        val jobs = RemoteTts.chunk(text).map { Job.Remote(it, pause) }
+        handler.post { queue.addAll(jobs); pump() }
+        jobs.forEach { job ->
+            synth.execute {
+                job.file = RemoteTts.synthesize(app, prefs, job.text)
+                job.done = true
+                handler.post { pump() }
+            }
+        }
     }
 
     fun chime(context: Context, uri: Uri, pause: Boolean = false) {
@@ -85,6 +107,7 @@ object Speaker {
     fun stop(context: Context) {
         init(context)
         handler.post {
+            queue.forEach { (it as? Job.Remote)?.file?.delete() }
             queue.clear()
             tts?.stop()
             releasePlayer()
@@ -95,6 +118,8 @@ object Speaker {
 
     private fun pump() {
         if (!ready || current != null) return
+        val head = queue.firstOrNull()
+        if (head is Job.Remote && !head.done) return  // 合成待ち。完了時にまた pump される
         val job = queue.removeFirstOrNull()
         if (job == null) {
             // 連続で来たときにフォーカスを取り直さないよう、少し待ってから返す
@@ -112,6 +137,35 @@ object Speaker {
                 }
             }
             is Job.Chime -> playChime(job.uri)
+            is Job.Remote -> {
+                val f = job.file
+                if (f != null) playFile(f)
+                else {
+                    Log.w(TAG, "remote TTS unavailable, falling back to local")
+                    val r = tts?.speak(job.text, TextToSpeech.QUEUE_ADD, null, "u${counter++}")
+                    if (r != TextToSpeech.SUCCESS) finished()
+                }
+            }
+        }
+    }
+
+    private fun playFile(file: File) {
+        releasePlayer()
+        try {
+            player = MediaPlayer().apply {
+                setAudioAttributes(attrs)
+                setDataSource(file.path)
+                setOnPreparedListener { it.start() }
+                setOnCompletionListener { file.delete(); finished() }
+                setOnErrorListener { _, what, extra ->
+                    Log.w(TAG, "playback failed: $what/$extra")
+                    file.delete(); finished(); true
+                }
+                prepareAsync()
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "open failed: $file", e)
+            file.delete(); finished()
         }
     }
 
@@ -142,7 +196,7 @@ object Speaker {
 
     private fun finished() {
         handler.post {
-            if (current is Job.Chime) releasePlayer()
+            if (current is Job.Chime || current is Job.Remote) releasePlayer()
             current = null
             pump()
         }
