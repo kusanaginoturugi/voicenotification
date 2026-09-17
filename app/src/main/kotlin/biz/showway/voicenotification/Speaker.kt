@@ -24,7 +24,7 @@ object Speaker {
 
     private sealed class Job(val pause: Boolean) {
         class Text(val text: String, pause: Boolean) : Job(pause)
-        class Chime(val uri: Uri, pause: Boolean) : Job(pause)
+        class Chime(val uri: Uri, val volume: Float, pause: Boolean) : Job(pause)
         /** リモート合成。done になるまで再生は待つ。file が null なら端末 TTS に落とす */
         class Remote(val text: String, pause: Boolean) : Job(pause) {
             @Volatile var file: File? = null
@@ -99,9 +99,9 @@ object Speaker {
         }
     }
 
-    fun chime(context: Context, uri: Uri, pause: Boolean = false) {
+    fun chime(context: Context, uri: Uri, volume: Float = 1f, pause: Boolean = false) {
         init(context)
-        handler.post { queue.addLast(Job.Chime(uri, pause)); pump() }
+        handler.post { queue.addLast(Job.Chime(uri, volume.coerceIn(0f, 1f), pause)); pump() }
     }
 
     fun stop(context: Context) {
@@ -136,7 +136,7 @@ object Speaker {
                     finished()
                 }
             }
-            is Job.Chime -> playChime(job.uri)
+            is Job.Chime -> playChime(job.uri, job.volume)
             is Job.Remote -> {
                 val f = job.file
                 if (f != null) playFile(f)
@@ -169,12 +169,13 @@ object Speaker {
         }
     }
 
-    private fun playChime(uri: Uri) {
+    private fun playChime(uri: Uri, volume: Float) {
         releasePlayer()
         try {
             player = MediaPlayer().apply {
                 setAudioAttributes(attrs)
                 setDataSource(app, uri)
+                setVolume(volume, volume)
                 setOnPreparedListener { it.start() }
                 setOnCompletionListener { finished() }
                 setOnErrorListener { _, what, extra ->

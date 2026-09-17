@@ -57,6 +57,11 @@ class Prefs(context: Context) {
         get() = sp.getString("news_chime", "two") ?: "two"
         set(v) = sp.edit().putString("news_chime", v).apply()
 
+    /** チャイムの音量。0.0〜1.0 で MediaPlayer にそのまま渡す */
+    var newsChimeVolume: Float
+        get() = sp.getFloat("news_chime_volume", 0.5f)
+        set(v) = sp.edit().putFloat("news_chime_volume", v).apply()
+
     var newsChimeUri: String?
         get() = sp.getString("news_chime_uri", null)
         set(v) = sp.edit().putString("news_chime_uri", v).apply()

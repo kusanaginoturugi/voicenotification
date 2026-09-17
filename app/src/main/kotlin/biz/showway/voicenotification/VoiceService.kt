@@ -40,7 +40,7 @@ class VoiceService : Service() {
             Scheduler.ACTION_NEWS -> news(prefs, force = false)
             ACTION_NEWS_NOW -> news(prefs, force = true)
             ACTION_SPEAK -> intent.getStringExtra(EXTRA_TEXT)?.let { Speaker.speak(this, it, prefs.pauseMusic) }
-            ACTION_CHIME_PREVIEW -> Chime.uriFor(this, prefs)?.let { Speaker.chime(this, it, prefs.pauseMusic) }
+            ACTION_CHIME_PREVIEW -> Chime.uriFor(this, prefs)?.let { Speaker.chime(this, it, prefs.newsChimeVolume, prefs.pauseMusic) }
             ACTION_STOP -> {
                 Speaker.stop(this)
                 stopForeground(STOP_FOREGROUND_REMOVE)
@@ -108,7 +108,7 @@ class VoiceService : Service() {
                 Log.w(TAG, "news fetch failed", e)
                 if (force) "ニュースの取得に失敗しました。" else return@execute
             }
-            Chime.uriFor(this, prefs)?.let { Speaker.chime(this, it, prefs.pauseMusic) }
+            Chime.uriFor(this, prefs)?.let { Speaker.chime(this, it, prefs.newsChimeVolume, prefs.pauseMusic) }
             Speaker.speak(this, text, prefs.pauseMusic)
         }
     }

@@ -28,6 +28,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -75,6 +76,7 @@ fun Screen() {
     var pauseMusic by remember { mutableStateOf(prefs.pauseMusic) }
     var newsChime by remember { mutableStateOf(Chime.of(prefs.newsChime)) }
     var newsChimeUri by remember { mutableStateOf(prefs.newsChimeUri) }
+    var newsChimeVolume by remember { mutableStateOf(prefs.newsChimeVolume) }
     var ttsUrls by remember { mutableStateOf(prefs.ttsUrls) }
     var ttsSpeaker by remember { mutableStateOf(prefs.ttsSpeaker.toString()) }
     var ttsSpeed by remember { mutableStateOf(prefs.ttsSpeed.toString()) }
@@ -290,6 +292,18 @@ fun Screen() {
                             Text(Uri.parse(newsChimeUri).lastPathSegment ?: newsChimeUri!!, style = MaterialTheme.typography.bodySmall)
                         }
                     }
+                }
+            }
+            item {
+                Column {
+                    Text("チャイムの音量 ${(newsChimeVolume * 100).toInt()}%", style = MaterialTheme.typography.labelLarge)
+                    Slider(
+                        value = newsChimeVolume,
+                        onValueChange = { newsChimeVolume = it },
+                        onValueChangeFinished = { prefs.newsChimeVolume = newsChimeVolume },
+                        valueRange = 0f..1f,
+                        steps = 19,
+                    )
                 }
             }
             item {
