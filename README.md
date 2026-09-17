@@ -53,31 +53,69 @@ app/src/main/kotlin/biz/showway/voicenotification/
   MainActivity.kt        設定画面（Compose）
 ```
 
-## チャイムを作り直す
+## play_chime.sh の使い方
 
-内蔵チャイムは `tools/gen_chime.py` で MML から合成している（numpy が必要。OGG 化に ffmpeg）。
-まず 1 つだけ鳴らして試すのが早い。
+MML を書いてその場で鳴らすツール。numpy と mpv が必要。
 
 ```sh
-tools/play_chime.sh "t120 l8 o6 c e g > c"
-tools/play_chime.sh -i bell -t 1.2 "t150 l16 o6 c <g8.> e8. c2"   # 音色 bell、余韻 1.2 秒
+tools/play_chime.sh "t79 l16 o6 d8. d8 e16"
+tools/play_chime.sh -i bell "t150 l16 o6 c <g8.> e8. c2"
+tools/play_chime.sh -t 0.8 "t143 l8 o6 g c4"
 ```
 
-WAV が欲しいときは `gen_chime.py -m "..." -o x.wav`。
+最後の引数が MML。それより前のオプションは `gen_chime.py` にそのまま渡る。
 
-MML の文法は `t` テンポ、`l` 既定音長、`o` オクターブ、`<` `>` でオクターブ移動、`v` 音量、`r` 休符、`+`/`-` で半音、`.` で付点、`&` でタイ。
-詳しくはスクリプト冒頭の docstring を見る。
+| オプション | 意味 | 既定 |
+| --- | --- | --- |
+| `-i musicbox` / `-i bell` | 音色。オルゴールかベル | `musicbox` |
+| `-t 秒` | 最後の音の余韻 | `1.6` |
 
-気に入ったら `CHIMES` の該当エントリの `mml` を書き換えて、全部を再生成する。
+WAV ファイルとして残したいときは `python3 tools/gen_chime.py -m "MML" -o x.wav`。
+
+### MML 早見表
+
+| 書き方 | 意味 |
+| --- | --- |
+| `t120` | テンポ。4 分音符が 1 分に 120 |
+| `l8` | 以降の既定音長。4 なら 4 分、8 なら 8 分、16 なら 16 分 |
+| `o6` | オクターブ。`o4` の `a` が 440Hz。C6 は `o6 c` |
+| `>` `<` | オクターブを 1 つ上げる / 下げる |
+| `v12` | 音量。0〜15、既定 12 |
+| `c d e f g a b` | 音名。`c8` のように音長を付けられる。付けなければ `l` の値 |
+| `c+` `c#` `d-` | 半音上げ / 下げ |
+| `c8.` | 付点。長さ 1.5 倍。`..` で 1.75 倍 |
+| `c8&c8` | タイ。打ち直さずに伸ばす |
+| `r8` | 休符 |
+| `\|` | 小節線。無視される |
+
+例: `t79 l16 o6 d8. d8 e16 f+16. f+8.` は D6 を付点 8 分、D6 を 8 分、E6 を 16 分、F♯6 を付点 16 分、F♯6 を付点 8 分。
+
+### 内蔵チャイムの MML
+
+`tools/gen_chime.py` の `CHIMES` にある。今の値はこれ。
+
+```
+chime_two        t143 l8 o6 g c4
+chime_arpeggio   t136 l8 o6 c e g > c
+chime_pinpon     t133 l4 o6 e c+ <a> e
+chime_radio      t150 l16 o6 c <g8.> e8. c2                    (bell)
+chime_jnr        t79 l16 o6 d8. d8 e16 f+16. f+8. e16 d8 d8. <b16 a4. b8. a8 b16> d8 d16 f+8 f+16 e8 e16 f+8 e16 d16. d16 f+32 a32 > d4
+chime_jnr_short  t79 l16 o6 d8. d8 e16 f+16. f+8. e16 d8 d8. <b16 a4.
+```
+
+`chime_radio` と `chime_jnr*` は手持ちの参考音源を FFT で解析して、音程と打鍵タイミングを写したもの。
+
+## チャイムを作り直す
+
+`play_chime.sh` で納得したら、`CHIMES` の該当エントリの `mml` を書き換えて全部を再生成し、OGG にしてビルドし直す。
 
 ```sh
 python3 tools/gen_chime.py -o /tmp/chime
 for f in /tmp/chime/*.wav; do
   ffmpeg -y -i $f -c:a libvorbis -q:a 5 app/src/main/res/raw/$(basename $f .wav).ogg
 done
+./gradlew assembleDebug
 ```
-
-`chime_radio` と `chime_jnr*` は手持ちの参考音源を FFT で解析して、音程と打鍵タイミングを写したもの。
 
 ## 既知の注意点
 
