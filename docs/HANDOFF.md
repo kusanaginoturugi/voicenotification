@@ -18,7 +18,7 @@ Android で以下を日本語 TTS で読み上げる常駐アプリ。
 - [x] Pixel 8a（Android 17）で TTS 動作確認
 - [x] VOICEVOX 対応（複数 URL フェイルオーバー、端末 TTS フォールバック）
 - [x] Tailscale 経由でスマホから VOICEVOX に届くことを確認（2026-09-17、ずんだもんで読み上げ成功）
-- [ ] 会社 Windows 機にも VOICEVOX を置いて 3 台目の URL にする
+- [ ] もう 1 台（tailnet 上の別の Linux 機）にも VOICEVOX を置いて 3 台目の URL にする
 - [x] 職場 Arch 機 gallsk にも VOICEVOX を置いた（2026-09-18、docker）
 - [x] gallsk を `tailscale serve` で tailnet に公開（2026-09-18、tailnet 内から `/version` 応答を確認）
 - [x] gallsk にもニュース要約一式を入れた（2026-09-18、既読は 2 台で分岐する前提で割り切り）
