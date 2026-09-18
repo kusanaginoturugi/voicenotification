@@ -119,7 +119,7 @@ class VoiceService : Service() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
         return Notification.Builder(this, App.CHANNEL_ID)
-            .setSmallIcon(android.R.drawable.ic_lock_silent_mode_off)
+            .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle("読み上げ待機中")
             .setContentIntent(open)
             .setOngoing(true)
