@@ -75,6 +75,11 @@ class Prefs(context: Context) {
         get() = sp.getInt("tts_speaker", 3)
         set(v) = sp.edit().putInt("tts_speaker", v).apply()
 
+    /** VOICEVOX の volumeScale。1.0 が素の音量。1.8 を超えると歪む */
+    var ttsVolume: Float
+        get() = sp.getFloat("tts_volume", 1.5f)
+        set(v) = sp.edit().putFloat("tts_volume", v).apply()
+
     var ttsSpeed: Float
         get() = sp.getFloat("tts_speed", 1.0f)
         set(v) = sp.edit().putFloat("tts_speed", v).apply()

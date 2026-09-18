@@ -42,7 +42,7 @@ object RemoteTts {
         val ordered = lastGood?.let { g -> listOf(g) + list.filter { it != g } } ?: list
         for (base in ordered) {
             try {
-                val f = synthesizeAt(context, base, prefs.ttsSpeaker, prefs.ttsSpeed, text)
+                val f = synthesizeAt(context, base, prefs.ttsSpeaker, prefs.ttsSpeed, prefs.ttsVolume, text)
                 lastGood = base
                 return f
             } catch (e: Exception) {
@@ -53,7 +53,9 @@ object RemoteTts {
         return null
     }
 
-    private fun synthesizeAt(context: Context, base: String, speaker: Int, speed: Float, text: String): File {
+    private fun synthesizeAt(
+        context: Context, base: String, speaker: Int, speed: Float, volume: Float, text: String,
+    ): File {
         val q = URLEncoder.encode(text, "UTF-8")
         var c = open("$base/audio_query?speaker=$speaker&text=$q", "POST")
         c.setFixedLengthStreamingMode(0)
@@ -62,6 +64,7 @@ object RemoteTts {
         val query = JSONObject(c.inputStream.bufferedReader().readText())
         c.disconnect()
         query.put("speedScale", speed.toDouble())
+        query.put("volumeScale", volume.coerceIn(0.1f, 1.8f).toDouble())
 
         c = open("$base/synthesis?speaker=$speaker", "POST")
         c.setRequestProperty("Content-Type", "application/json")

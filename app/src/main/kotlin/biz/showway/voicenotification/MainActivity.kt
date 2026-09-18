@@ -80,6 +80,7 @@ fun Screen() {
     var ttsUrls by remember { mutableStateOf(prefs.ttsUrls) }
     var ttsSpeaker by remember { mutableStateOf(prefs.ttsSpeaker.toString()) }
     var ttsSpeed by remember { mutableStateOf(prefs.ttsSpeed.toString()) }
+    var ttsVolume by remember { mutableStateOf(prefs.ttsVolume.toString()) }
     var probeResult by remember { mutableStateOf("") }
 
     var listenerOk by remember { mutableStateOf(NotificationReader.isEnabled(ctx)) }
@@ -191,6 +192,10 @@ fun Screen() {
                     NumberField("話者 ID", ttsSpeaker) {
                         ttsSpeaker = it
                         it.toIntOrNull()?.let { n -> prefs.ttsSpeaker = n }
+                    }
+                    DecimalField("音量", ttsVolume) {
+                        ttsVolume = it
+                        it.toFloatOrNull()?.let { f -> prefs.ttsVolume = f }
                     }
                     OutlinedTextField(
                         value = ttsSpeed,
@@ -363,6 +368,18 @@ private fun StatusRow(label: String, ok: Boolean, onFix: () -> Unit) {
         Text(label, modifier = Modifier.weight(1f))
         if (ok) Text("OK") else Button(onClick = onFix) { Text("設定") }
     }
+}
+
+/** 小数を受け付けるテキスト欄 */
+@Composable
+private fun DecimalField(label: String, value: String, onChange: (String) -> Unit) {
+    OutlinedTextField(
+        value = value,
+        onValueChange = { s -> if (s.matches(Regex("[0-9]*\\.?[0-9]*"))) onChange(s) },
+        label = { Text(label) },
+        singleLine = true,
+        modifier = Modifier.width(120.dp),
+    )
 }
 
 @Composable
