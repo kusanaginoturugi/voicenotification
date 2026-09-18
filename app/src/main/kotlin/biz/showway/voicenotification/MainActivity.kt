@@ -258,6 +258,9 @@ fun Screen() {
             item {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                     OutlinedButton(onClick = {
+                        probeResult = "キャッシュを ${RemoteTts.clearCache(ctx)} 件削除"
+                    }) { Text("音声キャッシュを消す") }
+                    OutlinedButton(onClick = {
                         probeResult = "確認中…"
                         Thread {
                             val r = RemoteTts.probe(prefs).joinToString("\n") { (u, v) -> "$v  $u" }

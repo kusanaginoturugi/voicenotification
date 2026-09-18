@@ -63,6 +63,10 @@ Android で以下を日本語 TTS で読み上げる常駐アプリ。
 - NHK の主要ニュース（cat0）は常に 7 件で、公開時刻は 4 時間ほどに散らばる。3 時間おきなら毎回数件が新規になる
 - 要約テストが 3 分以上止まった。llama-server は `--models-max 1` で、Firefox 拡張が `gemma-4-12b-it-qat-imatrix` を連続で叩いている最中に別モデルを指定すると入れ替え待ちで進まない。既定モデルを imatrix 版に変更し、curl にタイムアウトを付けた
 - `gemma-4-12B-it-qat` のプリセットは `n-predict = 256` で要約が切れうる。imatrix 版は制限なし、`reasoning = off`
+- 短い文（60 文字まで）の合成結果を `cacheDir/tts-cache/<話者ID>_<ハッシュ>.wav` にキャッシュ。ハッシュは速度・音量・本文から作る。300 件を超えたら古い順に削除
+  - 時報は「午後10時です。」と予定の読み上げを別の文に分けた。前半だけがキャッシュに乗る
+  - キャッシュのファイルは再生後に消さない（`RemoteTts.isCached`）。一時ファイルは従来どおり消す
+  - 実機で確認: 1 回目 `cached: 1_37d33a6db6dd39e6.wav`、2 回目 `cache hit: ...`
 - アイコンを自作に差し替え。`drawable/ic_launcher_background.xml`（藍のグラデーション）と `ic_launcher_foreground.xml`（鈴と音の波、安全領域に収めるため 0.85 倍）。通知バー用は `ic_notification.xml`
 - tenkeydrive から流用していた `mipmap-*dpi` の webp は削除。minSdk 31 なので `mipmap-anydpi-v26` のアダプティブアイコンだけで足りる
 - アイコンの見え方は、同じパスを SVG にして `rsvg-convert` で描いて確認した

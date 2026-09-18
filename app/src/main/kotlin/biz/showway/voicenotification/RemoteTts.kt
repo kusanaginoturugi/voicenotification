@@ -5,6 +5,7 @@ import android.util.Log
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
+import java.security.MessageDigest
 import java.net.HttpURLConnection
 import java.net.URL
 import java.net.URLEncoder
@@ -18,7 +19,41 @@ object RemoteTts {
     private const val CONNECT_TIMEOUT = 1500
     private const val READ_TIMEOUT = 30_000
 
+    /** この文字数までの短い文だけキャッシュする。ニュースのような一度きりの長文は溜めない */
+    private const val CACHE_MAX_CHARS = 60
+    private const val CACHE_MAX_FILES = 300
+    const val CACHE_DIR_NAME = "tts-cache"
+
     @Volatile private var lastGood: String? = null
+
+    /** キャッシュに入っているファイルか。再生後に消してよいかの判定に使う */
+    fun isCached(file: File): Boolean = file.parentFile?.name == CACHE_DIR_NAME
+
+    fun cacheDir(context: Context): File =
+        File(context.cacheDir, CACHE_DIR_NAME).apply { mkdirs() }
+
+    /** 話者・速度・音量・本文が同じなら同じ名前になる */
+    private fun cacheFile(context: Context, prefs: Prefs, text: String): File {
+        val seed = "${prefs.ttsSpeed}|${prefs.ttsVolume}|$text"
+        val hash = MessageDigest.getInstance("SHA-1").digest(seed.toByteArray())
+            .joinToString("") { "%02x".format(it) }.take(16)
+        return File(cacheDir(context), "${prefs.ttsSpeaker}_$hash.wav")
+    }
+
+    fun clearCache(context: Context): Int {
+        val files = cacheDir(context).listFiles().orEmpty()
+        files.forEach { it.delete() }
+        return files.size
+    }
+
+    /** 古いものから消して CACHE_MAX_FILES 個に収める */
+    private fun pruneCache(context: Context) {
+        val files = cacheDir(context).listFiles().orEmpty()
+        if (files.size <= CACHE_MAX_FILES) return
+        files.sortedByDescending { it.lastModified() }
+            .drop(CACHE_MAX_FILES)
+            .forEach { it.delete() }
+    }
 
     fun enabled(prefs: Prefs): Boolean = urls(prefs).isNotEmpty()
 
@@ -64,16 +99,33 @@ object RemoteTts {
         return emptyList()
     }
 
-    /** 合成した WAV ファイル。失敗なら null */
+    /**
+     * 合成した WAV ファイル。失敗なら null。
+     * 短い文はキャッシュから返す。キャッシュのファイルは再生後に消さないこと（[isCached]）
+     */
     fun synthesize(context: Context, prefs: Prefs, text: String): File? {
         val list = urls(prefs)
         if (list.isEmpty()) return null
+        val cacheable = text.length <= CACHE_MAX_CHARS
+        val cached = if (cacheable) cacheFile(context, prefs, text) else null
+        if (cached != null && cached.length() > 0) {
+            cached.setLastModified(System.currentTimeMillis())   // LRU 用
+            Log.i(TAG, "cache hit: ${cached.name}")
+            return cached
+        }
         val ordered = lastGood?.let { g -> listOf(g) + list.filter { it != g } } ?: list
         for (base in ordered) {
             try {
                 val f = synthesizeAt(context, base, prefs.ttsSpeaker, prefs.ttsSpeed, prefs.ttsVolume, text)
                 lastGood = base
-                return f
+                if (cached == null) return f
+                return if (f.renameTo(cached)) {
+                    pruneCache(context)
+                    Log.i(TAG, "cached: ${cached.name}")
+                    cached
+                } else {
+                    f
+                }
             } catch (e: Exception) {
                 Log.w(TAG, "synthesis failed at $base: ${e.javaClass.simpleName} ${e.message}")
                 if (lastGood == base) lastGood = null

@@ -59,19 +59,21 @@ class VoiceService : Service() {
     }
 
     private fun chime(prefs: Prefs) {
-        val c = Calendar.getInstance()
-        val h = c.get(Calendar.HOUR_OF_DAY)
-        val sb = StringBuilder()
-        sb.append(if (h < 12) "午前" else "午後")
-            .append(if (h % 12 == 0) 12 else h % 12).append("時です。")
-        if (prefs.calendarEnabled) {
-            val now = System.currentTimeMillis()
-            val events = CalendarSource.upcoming(this, now, now + 60 * 60_000L)
-            if (events.isNotEmpty()) {
-                sb.append("この後の予定は、")
-                events.forEach { sb.append(CalendarSource.timeText(it.begin)).append("、").append(it.title).append("。") }
-            }
+        val h = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
+        // 時刻の文は毎回同じなので、予定と分けて読む（同じ文なら合成結果が使い回される）
+        val timeText = buildString {
+            append(if (h < 12) "午前" else "午後")
+            append(if (h % 12 == 0) 12 else h % 12)
+            append("時です。")
         }
+        Speaker.speak(this, timeText, prefs.pauseMusic)
+
+        if (!prefs.calendarEnabled) return
+        val now = System.currentTimeMillis()
+        val events = CalendarSource.upcoming(this, now, now + 60 * 60_000L)
+        if (events.isEmpty()) return
+        val sb = StringBuilder("この後の予定は、")
+        events.forEach { sb.append(CalendarSource.timeText(it.begin)).append("、").append(it.title).append("。") }
         Speaker.speak(this, sb.toString(), prefs.pauseMusic)
     }
 

@@ -107,7 +107,9 @@ object Speaker {
     fun stop(context: Context) {
         init(context)
         handler.post {
-            queue.forEach { (it as? Job.Remote)?.file?.delete() }
+            queue.forEach { job ->
+                (job as? Job.Remote)?.file?.let { if (!RemoteTts.isCached(it)) it.delete() }
+            }
             queue.clear()
             tts?.stop()
             releasePlayer()
@@ -139,7 +141,7 @@ object Speaker {
             is Job.Chime -> playChime(job.uri, job.volume)
             is Job.Remote -> {
                 val f = job.file
-                if (f != null) playFile(f)
+                if (f != null) playFile(f, keep = RemoteTts.isCached(f))
                 else {
                     Log.w(TAG, "remote TTS unavailable, falling back to local")
                     val r = tts?.speak(job.text, TextToSpeech.QUEUE_ADD, null, "u${counter++}")
@@ -149,23 +151,24 @@ object Speaker {
         }
     }
 
-    private fun playFile(file: File) {
+    private fun playFile(file: File, keep: Boolean) {
+        fun cleanup() { if (!keep) file.delete() }
         releasePlayer()
         try {
             player = MediaPlayer().apply {
                 setAudioAttributes(attrs)
                 setDataSource(file.path)
                 setOnPreparedListener { it.start() }
-                setOnCompletionListener { file.delete(); finished() }
+                setOnCompletionListener { cleanup(); finished() }
                 setOnErrorListener { _, what, extra ->
                     Log.w(TAG, "playback failed: $what/$extra")
-                    file.delete(); finished(); true
+                    cleanup(); finished(); true
                 }
                 prepareAsync()
             }
         } catch (e: Exception) {
             Log.w(TAG, "open failed: $file", e)
-            file.delete(); finished()
+            cleanup(); finished()
         }
     }
 
