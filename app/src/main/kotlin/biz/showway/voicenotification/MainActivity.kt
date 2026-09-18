@@ -76,6 +76,7 @@ fun Screen() {
     var newsUrl by remember { mutableStateOf(prefs.newsUrl) }
     var newsOnlyMusic by remember { mutableStateOf(prefs.newsOnlyWhenMusic) }
     var pauseMusic by remember { mutableStateOf(prefs.pauseMusic) }
+    var muteInSilent by remember { mutableStateOf(prefs.muteInSilentMode) }
     var newsChime by remember { mutableStateOf(Chime.of(prefs.newsChime)) }
     var newsChimeUri by remember { mutableStateOf(prefs.newsChimeUri) }
     var newsChimeVolume by remember { mutableStateOf(prefs.newsChimeVolume) }
@@ -272,6 +273,11 @@ fun Screen() {
             }
 
             item { Section("共通") }
+            item {
+                SwitchRow("マナーモード中は自動の読み上げをしない（ボタンからは鳴る）", muteInSilent) {
+                    muteInSilent = it; prefs.muteInSilentMode = it
+                }
+            }
             item {
                 SwitchRow("読み上げ中は音楽を一時停止（オフなら音量を下げる）", pauseMusic) {
                     pauseMusic = it; prefs.pauseMusic = it

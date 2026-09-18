@@ -16,6 +16,7 @@ class NotificationReader : NotificationListenerService() {
         val prefs = Prefs(this)
         if (!prefs.serviceEnabled) return
         if (sbn.packageName !in prefs.packages) return
+        if (!Speaker.allowedNow(this)) return
         if (sbn.isOngoing) return
 
         val n = sbn.notification

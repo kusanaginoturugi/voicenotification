@@ -48,6 +48,11 @@ class Prefs(context: Context) {
         get() = sp.getBoolean("news_only_music", true)
         set(v) = sp.edit().putBoolean("news_only_music", v).apply()
 
+    /** マナーモード（消音・バイブ）のときは自動の読み上げをしない。手動のボタンは鳴る */
+    var muteInSilentMode: Boolean
+        get() = sp.getBoolean("mute_in_silent", true)
+        set(v) = sp.edit().putBoolean("mute_in_silent", v).apply()
+
     var pauseMusic: Boolean
         get() = sp.getBoolean("pause_music", false)
         set(v) = sp.edit().putBoolean("pause_music", v).apply()

@@ -80,6 +80,16 @@ object Speaker {
         }
     }
 
+    /** 自動の読み上げをしてよいか。マナーモードなら false */
+    fun allowedNow(context: Context): Boolean {
+        val prefs = Prefs(context)
+        if (!prefs.muteInSilentMode) return true
+        val am = context.getSystemService(AudioManager::class.java)
+        val ok = am.ringerMode == AudioManager.RINGER_MODE_NORMAL
+        if (!ok) Log.i(TAG, "skipped: ringer mode ${am.ringerMode}")
+        return ok
+    }
+
     fun speak(context: Context, text: String, pause: Boolean = false) {
         if (text.isBlank()) return
         init(context)

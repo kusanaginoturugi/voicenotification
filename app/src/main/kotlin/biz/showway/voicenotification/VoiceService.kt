@@ -34,6 +34,12 @@ class VoiceService : Service() {
             stopSelf()
             return START_NOT_STICKY
         }
+        // 自動で鳴るものはマナーモードを尊重する。ボタンから来たものは鳴らす
+        val automatic = intent?.action in setOf(
+            Scheduler.ACTION_CHIME, Scheduler.ACTION_CALENDAR, Scheduler.ACTION_NEWS,
+        )
+        if (automatic && !Speaker.allowedNow(this)) return START_STICKY
+
         when (intent?.action) {
             Scheduler.ACTION_CHIME -> chime(prefs)
             Scheduler.ACTION_CALENDAR -> calendarScan(prefs)
