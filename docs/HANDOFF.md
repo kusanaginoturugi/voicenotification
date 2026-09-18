@@ -19,6 +19,11 @@ Android で以下を日本語 TTS で読み上げる常駐アプリ。
 - [x] VOICEVOX 対応（複数 URL フェイルオーバー、端末 TTS フォールバック）
 - [x] Tailscale 経由でスマホから VOICEVOX に届くことを確認（2026-09-17、ずんだもんで読み上げ成功）
 - [ ] 会社 Windows 機にも VOICEVOX を置いて 2 台目の URL にする
+- [x] 職場 Arch 機 gallsk にも VOICEVOX を置いた（2026-09-18、docker）
+- [x] gallsk を `tailscale serve` で tailnet に公開（2026-09-18、tailnet 内から `/version` 応答を確認）
+- [x] gallsk にもニュース要約一式を入れた（2026-09-18、既読は 2 台で分岐する前提で割り切り）
+- [ ] gallsk の 8090 を `tailscale serve` で公開する
+- [ ] アプリの VOICEVOX URL とニュース URL に gallsk を 2 本目として足して実機で確認
 - [x] ニュースを LocalLLM で要約してから読む（2026-09-17、実機で VOICEVOX 読み上げまで確認）
 - [x] ニュースを時刻指定（9、12、15、18 時）に変更。要約は 5 分前
 - [x] 一度要約に使った記事を除外（PC 側で検証済み）
@@ -60,6 +65,28 @@ Android で以下を日本語 TTS で読み上げる常駐アプリ。
 - `gemma-4-12B-it-qat` のプリセットは `n-predict = 256` で要約が切れうる。imatrix 版は制限なし、`reasoning = off`
 - チャイムが大きすぎるとのことで音量設定を追加。`MediaPlayer.setVolume` にスライダーの値（0〜1、5% 刻み）をそのまま渡す線形。VOICEVOX の音声と端末 TTS には効かない
 - zsh の `cp` は `cp -i` の alias。スクリプトや非対話実行では `command cp -f` を使う
+
+### 2026-09-18
+
+- 職場の Arch 機 gallsk（16 コア, RTX 3060, tailnet 100.110.75.108）にも VOICEVOX 0.25.2 を導入
+- 初手で詰まった点: docker は入っていたが `docker.service` は disabled、`onoue` は `docker` グループ非所属で `/var/run/docker.sock` が `root:docker 660`
+- この機械の sudo は `systemctl *`、`pacman -S *`、`pacman -Syu`、`nvidia-smi`、`yay` だけ NOPASSWD。`usermod` も `sudo docker` も対象外
+- 一度 rootless podman + quadlet で動かしたが、自宅と職場でコンテナ基盤が分かれて二重管理になるため docker に寄せ直した
+- `sudo usermod -aG docker onoue` は手動実行。再起動後に反映を確認。`sudo systemctl enable --now docker` は NOPASSWD で通る
+- 起動は README と同じ `docker run -d --name voicevox --restart unless-stopped -p 127.0.0.1:50021:50021 voicevox/voicevox_engine:cpu-latest`
+- 検証は `/version` だけでなく `audio_query` → `synthesis`（speaker=3）まで。24kHz mono 16bit の WAV が出た。話者は 43 人、id 3 は ずんだもん ノーマル
+- GPU 版は見送り。llama.cpp が 3060 の 12GB のうち 8.4GB を掴んでいて空きが 3GB 程度しかない。自宅と同じ `cpu-latest` にした
+- 起動時の復帰は `sudo systemctl restart docker` 後にコンテナが自動で上がり `/version` が返ることまで確認。実際の再起動では未検証
+- podman は撤去済み（`podman system reset` と `~/.config/containers`、`~/.local/share/containers` の削除で 2.2GB 回収）。ただしパッケージ本体は `pacman -R` が NOPASSWD 外なので残っている
+- `tailscale serve --bg --tcp 50021 tcp://127.0.0.1:50021` は本人が手動実行。エージェントの権限チェックが tailscale コマンドを弾くため
+- MagicDNS 名は `gallsk.tailb46b1.ts.net`。短縮名 `gallsk` でも引ける。`curl http://gallsk:50021/version` が `"0.25.2"` を返すところまで確認
+- 解除は `tailscale serve --tcp=50021 off`
+- ニュース要約一式も gallsk に導入。`llama.cpp.service` は元から動いていて、スクリプト既定の `gemma-4-12b-it-qat-imatrix` もモデル一覧にあった
+- `xmllint`、`curl`、`jq` は導入済み。`/usr/bin/python3` は 3.14 の実体で mise の shim ではない
+- `voicenews.service` / `voicenews.timer` / `voicenews-http.service` を `~/.config/systemd/user/` に入れて enable。次回発火は 11:55
+- `news_summary.sh` を手動実行して 4 秒で要約を生成。`127.0.0.1:8090/news.txt` が `Last-Modified` 付きで返ることまで確認
+- 起動直後の順序は未検証。`Persistent=true` の取りこぼし実行が llama-server のモデル読み込み中に走ると要約が空振りしうる。`LLM_TIMEOUT=300` があるので自己回復する見込みだが未確認
+- 2 台構成の割り切り: VOICEVOX はステートレスなので単純な冗長化になるが、ニュースは `seen.txt` がホストごとに独立する。切り替わった直後は既に読んだ記事がもう一度読まれうる。どちらのサーバも常時稼働にはできないため、この重複は許容する判断
 
 ## 引き継ぎ
 
