@@ -63,6 +63,7 @@ Android で以下を日本語 TTS で読み上げる常駐アプリ。
 - NHK の主要ニュース（cat0）は常に 7 件で、公開時刻は 4 時間ほどに散らばる。3 時間おきなら毎回数件が新規になる
 - 要約テストが 3 分以上止まった。llama-server は `--models-max 1` で、Firefox 拡張が `gemma-4-12b-it-qat-imatrix` を連続で叩いている最中に別モデルを指定すると入れ替え待ちで進まない。既定モデルを imatrix 版に変更し、curl にタイムアウトを付けた
 - `gemma-4-12B-it-qat` のプリセットは `n-predict = 256` で要約が切れうる。imatrix 版は制限なし、`reasoning = off`
+- 話者は `/speakers` から取得してドロップダウンで選ぶ。表示名は `Prefs.ttsSpeakerName` に保存するので、エンジンに繋がらないときも画面に出る
 - VOICEVOX の音声はチャイムより元から小さい（実測で実効 -24.2 dB、チャイム 50% が -19.6 dB、チャイム 100% が -13.5 dB）。`audio_query` の `volumeScale` を設定にして既定 1.5 にした。1.5 でピーク 0.85、クリップなし。1.8 でピーク 1.0 に張り付く
 - チャイムが大きすぎるとのことで音量設定を追加。`MediaPlayer.setVolume` にスライダーの値（0〜1、5% 刻み）をそのまま渡す線形。VOICEVOX の音声と端末 TTS には効かない
 - zsh の `cp` は `cp -i` の alias。スクリプトや非対話実行では `command cp -f` を使う

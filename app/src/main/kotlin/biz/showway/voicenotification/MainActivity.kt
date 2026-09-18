@@ -27,6 +27,8 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Scaffold
@@ -79,6 +81,10 @@ fun Screen() {
     var newsChimeVolume by remember { mutableStateOf(prefs.newsChimeVolume) }
     var ttsUrls by remember { mutableStateOf(prefs.ttsUrls) }
     var ttsSpeaker by remember { mutableStateOf(prefs.ttsSpeaker.toString()) }
+    var ttsSpeakerName by remember { mutableStateOf(prefs.ttsSpeakerName) }
+    var speakers by remember { mutableStateOf<List<RemoteTts.SpeakerStyle>>(emptyList()) }
+    var speakerMenu by remember { mutableStateOf(false) }
+    var speakerLoading by remember { mutableStateOf(false) }
     var ttsSpeed by remember { mutableStateOf(prefs.ttsSpeed.toString()) }
     var ttsVolume by remember { mutableStateOf(prefs.ttsVolume.toString()) }
     var probeResult by remember { mutableStateOf("") }
@@ -188,11 +194,49 @@ fun Screen() {
                 )
             }
             item {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    NumberField("話者 ID", ttsSpeaker) {
-                        ttsSpeaker = it
-                        it.toIntOrNull()?.let { n -> prefs.ttsSpeaker = n }
+                Column {
+                    OutlinedButton(onClick = {
+                        if (speakers.isEmpty() && !speakerLoading) {
+                            speakerLoading = true
+                            Thread {
+                                val list = RemoteTts.speakers(prefs)
+                                (ctx as? ComponentActivity)?.runOnUiThread {
+                                    speakers = list
+                                    speakerLoading = false
+                                    speakerMenu = list.isNotEmpty()
+                                }
+                            }.start()
+                        } else {
+                            speakerMenu = true
+                        }
+                    }) {
+                        Text(
+                            when {
+                                speakerLoading -> "話者を取得中…"
+                                ttsSpeakerName.isNotEmpty() -> "話者: $ttsSpeakerName（$ttsSpeaker）"
+                                else -> "話者を選ぶ（今は ID $ttsSpeaker）"
+                            }
+                        )
                     }
+                    DropdownMenu(expanded = speakerMenu, onDismissRequest = { speakerMenu = false }) {
+                        speakers.forEach { sp ->
+                            DropdownMenuItem(
+                                text = { Text("${sp.label}（${sp.id}）") },
+                                onClick = {
+                                    ttsSpeaker = sp.id.toString(); prefs.ttsSpeaker = sp.id
+                                    ttsSpeakerName = sp.label; prefs.ttsSpeakerName = sp.label
+                                    speakerMenu = false
+                                },
+                            )
+                        }
+                    }
+                    if (!speakerLoading && speakers.isEmpty() && ttsSpeakerName.isEmpty()) {
+                        Text("エンジンに繋がると名前で選べる", style = MaterialTheme.typography.bodySmall)
+                    }
+                }
+            }
+            item {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     DecimalField("音量", ttsVolume) {
                         ttsVolume = it
                         it.toFloatOrNull()?.let { f -> prefs.ttsVolume = f }

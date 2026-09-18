@@ -2,6 +2,7 @@ package biz.showway.voicenotification
 
 import android.content.Context
 import android.util.Log
+import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
 import java.net.HttpURLConnection
@@ -33,6 +34,34 @@ object RemoteTts {
         } catch (e: Exception) {
             "NG ${e.javaClass.simpleName}"
         }
+    }
+
+    data class SpeakerStyle(val id: Int, val label: String)
+
+    /** エンジンの話者一覧。最初に応答した URL のものを返す。全滅なら空 */
+    fun speakers(prefs: Prefs): List<SpeakerStyle> {
+        for (base in urls(prefs)) {
+            try {
+                val c = open("$base/speakers", "GET")
+                val body = c.inputStream.bufferedReader().readText()
+                c.disconnect()
+                val out = ArrayList<SpeakerStyle>()
+                val arr = JSONArray(body)
+                for (i in 0 until arr.length()) {
+                    val sp = arr.getJSONObject(i)
+                    val name = sp.getString("name")
+                    val styles = sp.getJSONArray("styles")
+                    for (j in 0 until styles.length()) {
+                        val st = styles.getJSONObject(j)
+                        out += SpeakerStyle(st.getInt("id"), "$name ${st.getString("name")}")
+                    }
+                }
+                return out
+            } catch (e: Exception) {
+                Log.w(TAG, "speakers failed at $base: ${e.javaClass.simpleName}")
+            }
+        }
+        return emptyList()
     }
 
     /** 合成した WAV ファイル。失敗なら null */
