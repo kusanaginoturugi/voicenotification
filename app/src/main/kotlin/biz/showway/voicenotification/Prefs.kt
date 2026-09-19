@@ -48,6 +48,11 @@ class Prefs(context: Context) {
         get() = sp.getBoolean("news_only_music", true)
         set(v) = sp.edit().putBoolean("news_only_music", v).apply()
 
+    /** 通知の読み上げをこの文字数で打ち切る。0 で無制限 */
+    var notificationMaxChars: Int
+        get() = sp.getInt("notification_max_chars", 120)
+        set(v) = sp.edit().putInt("notification_max_chars", v).apply()
+
     /** マナーモード（消音・バイブ）のときは自動の読み上げをしない。手動のボタンは鳴る */
     var muteInSilentMode: Boolean
         get() = sp.getBoolean("mute_in_silent", true)

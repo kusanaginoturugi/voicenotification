@@ -90,7 +90,8 @@ object Speaker {
         return ok
     }
 
-    fun speak(context: Context, text: String, pause: Boolean = false) {
+    fun speak(context: Context, raw: String, pause: Boolean = false) {
+        val text = Speech.sanitize(raw)
         if (text.isBlank()) return
         init(context)
         val prefs = Prefs(context)

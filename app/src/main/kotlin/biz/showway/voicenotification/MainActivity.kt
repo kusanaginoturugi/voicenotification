@@ -77,6 +77,7 @@ fun Screen() {
     var newsOnlyMusic by remember { mutableStateOf(prefs.newsOnlyWhenMusic) }
     var pauseMusic by remember { mutableStateOf(prefs.pauseMusic) }
     var muteInSilent by remember { mutableStateOf(prefs.muteInSilentMode) }
+    var notificationMax by remember { mutableStateOf(prefs.notificationMaxChars.toString()) }
     var newsChime by remember { mutableStateOf(Chime.of(prefs.newsChime)) }
     var newsChimeUri by remember { mutableStateOf(prefs.newsChimeUri) }
     var newsChimeVolume by remember { mutableStateOf(prefs.newsChimeVolume) }
@@ -377,7 +378,18 @@ fun Screen() {
                 )
             }
 
-            item { Section("通知を読み上げるアプリ") }
+            item { Section("通知の読み上げ") }
+            item {
+                Text("URL は「リンク」、メールアドレスは「メールアドレス」に置き換える。長い ID は読まない",
+                    style = MaterialTheme.typography.bodySmall)
+            }
+            item {
+                NumberField("最大文字数（0 で無制限）", notificationMax) {
+                    notificationMax = it
+                    it.toIntOrNull()?.let { n -> prefs.notificationMaxChars = n }
+                }
+            }
+            item { Section("読み上げるアプリ") }
             items(apps, key = { it.pkg }) { app ->
                 val checked = app.pkg in packages
                 Row(

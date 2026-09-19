@@ -37,7 +37,9 @@ class NotificationReader : NotificationListenerService() {
             ).toString()
         }.getOrDefault(sbn.packageName)
 
-        Speaker.speak(this, "$appName。$body", prefs.pauseMusic)
+        val speech = Speech.truncate(Speech.sanitize(body), prefs.notificationMaxChars)
+        if (speech.isBlank()) return
+        Speaker.speak(this, "$appName。$speech", prefs.pauseMusic)
     }
 
     private fun extractText(n: Notification): String? {
