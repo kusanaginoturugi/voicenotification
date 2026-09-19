@@ -63,6 +63,10 @@ Android で以下を日本語 TTS で読み上げる常駐アプリ。
 - NHK の主要ニュース（cat0）は常に 7 件で、公開時刻は 4 時間ほどに散らばる。3 時間おきなら毎回数件が新規になる
 - 要約テストが 3 分以上止まった。llama-server は `--models-max 1` で、Firefox 拡張が `gemma-4-12b-it-qat-imatrix` を連続で叩いている最中に別モデルを指定すると入れ替え待ちで進まない。既定モデルを imatrix 版に変更し、curl にタイムアウトを付けた
 - `gemma-4-12B-it-qat` のプリセットは `n-predict = 256` で要約が切れうる。imatrix 版は制限なし、`reasoning = off`
+- 通知の読み上げが「LINE ゆら うんちんぐ」のように素っ気ないという指摘があり、言い回しをテンプレート化。既定は `{sender}から{app}です。{body}`
+  - `Speech.withHonorific` で二重敬称を避ける（さん・くん・ちゃん・様・先生・氏・君で終われば付けない）
+  - `Speech.appReading` でパッケージ名から読みを引く（LINE →「ライン」など 11 件）。無ければアプリのラベルをそのまま使う
+  - `NotificationReader.extractText` は `(送信者, 本文)` を返すようにした。MessagingStyle なら送信者が取れる
 - 長い URL を延々と読まれて辛いという指摘があり、`Speech.kt` を追加。URL →「リンク」、メールアドレス →「メールアドレス」、20 文字以上の英数字の塊は削除。`Speaker.speak` の入口で全経路に掛かる
 - 通知だけ `Prefs.notificationMaxChars`（既定 120）で打ち切る。句読点で切って「、以下略。」
 - マナーモード（`RINGER_MODE_SILENT` / `VIBRATE`）のときは自動の読み上げを止める設定を追加。既定 ON。画面のボタンからの読み上げと試聴は鳴る。読み上げはメディア音声なので、本来はマナーモードでも鳴ってしまうため明示的に判定している

@@ -78,6 +78,8 @@ fun Screen() {
     var pauseMusic by remember { mutableStateOf(prefs.pauseMusic) }
     var muteInSilent by remember { mutableStateOf(prefs.muteInSilentMode) }
     var notificationMax by remember { mutableStateOf(prefs.notificationMaxChars.toString()) }
+    var template by remember { mutableStateOf(prefs.notificationTemplate) }
+    var templatePlain by remember { mutableStateOf(prefs.notificationTemplatePlain) }
     var newsChime by remember { mutableStateOf(Chime.of(prefs.newsChime)) }
     var newsChimeUri by remember { mutableStateOf(prefs.newsChimeUri) }
     var newsChimeVolume by remember { mutableStateOf(prefs.newsChimeVolume) }
@@ -382,6 +384,34 @@ fun Screen() {
             item {
                 Text("URL は「リンク」、メールアドレスは「メールアドレス」に置き換える。長い ID は読まない",
                     style = MaterialTheme.typography.bodySmall)
+            }
+            item {
+                OutlinedTextField(
+                    value = template,
+                    onValueChange = { template = it; prefs.notificationTemplate = it },
+                    label = { Text("言い回し（送信者が分かるとき）") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+            item {
+                OutlinedTextField(
+                    value = templatePlain,
+                    onValueChange = { templatePlain = it; prefs.notificationTemplatePlain = it },
+                    label = { Text("言い回し（送信者が分からないとき）") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+            item {
+                Text("{app} アプリ名、{sender} 送信者（さん付き）、{name} 送信者そのまま、{body} 本文",
+                    style = MaterialTheme.typography.bodySmall)
+            }
+            item {
+                OutlinedButton(onClick = {
+                    val sample = Speech.compose(prefs.notificationTemplate, "ライン", "ゆら", "うんちんぐ")
+                    VoiceService.start(ctx, VoiceService.ACTION_SPEAK, sample)
+                }) { Text("言い回しを試す") }
             }
             item {
                 NumberField("最大文字数（0 で無制限）", notificationMax) {

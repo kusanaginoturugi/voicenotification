@@ -48,6 +48,16 @@ class Prefs(context: Context) {
         get() = sp.getBoolean("news_only_music", true)
         set(v) = sp.edit().putBoolean("news_only_music", v).apply()
 
+    /** 送信者が分かる通知の言い回し。{app} {sender} {name} {body} を使える */
+    var notificationTemplate: String
+        get() = sp.getString("notification_template", DEFAULT_TEMPLATE) ?: DEFAULT_TEMPLATE
+        set(v) = sp.edit().putString("notification_template", v).apply()
+
+    /** 送信者が分からない通知の言い回し */
+    var notificationTemplatePlain: String
+        get() = sp.getString("notification_template_plain", DEFAULT_TEMPLATE_PLAIN) ?: DEFAULT_TEMPLATE_PLAIN
+        set(v) = sp.edit().putString("notification_template_plain", v).apply()
+
     /** 通知の読み上げをこの文字数で打ち切る。0 で無制限 */
     var notificationMaxChars: Int
         get() = sp.getInt("notification_max_chars", 120)
@@ -105,6 +115,8 @@ class Prefs(context: Context) {
         set(v) = sp.edit().putStringSet("announced_events", v.toSet()).apply()
 
     companion object {
+        const val DEFAULT_TEMPLATE = "{sender}から{app}です。{body}"
+        const val DEFAULT_TEMPLATE_PLAIN = "{app}です。{body}"
         const val DEFAULT_NEWS_HOURS = "9,12,15,18"
         const val DEFAULT_NEWS_URL = "https://www.nhk.or.jp/rss/news/cat0.xml"
     }

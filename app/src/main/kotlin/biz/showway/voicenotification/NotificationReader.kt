@@ -22,10 +22,11 @@ class NotificationReader : NotificationListenerService() {
         val n = sbn.notification
         if (n.flags and Notification.FLAG_GROUP_SUMMARY != 0) return
 
-        val body = extractText(n) ?: return
+        val parsed = extractText(n) ?: return
+        val (sender, body) = parsed
         if (body.isBlank()) return
 
-        val key = "${sbn.packageName}|$body"
+        val key = "${sbn.packageName}|$sender|$body"
         val now = SystemClock.elapsedRealtime()
         recent.entries.removeAll { now - it.value > DEDUPE_MS }
         if (recent.containsKey(key)) return
@@ -37,12 +38,21 @@ class NotificationReader : NotificationListenerService() {
             ).toString()
         }.getOrDefault(sbn.packageName)
 
-        val speech = Speech.truncate(Speech.sanitize(body), prefs.notificationMaxChars)
-        if (speech.isBlank()) return
-        Speaker.speak(this, "$appName。$speech", prefs.pauseMusic)
+        val trimmed = Speech.truncate(Speech.sanitize(body), prefs.notificationMaxChars)
+        if (trimmed.isBlank()) return
+        val template =
+            if (sender.isNotBlank()) prefs.notificationTemplate else prefs.notificationTemplatePlain
+        val speech = Speech.compose(
+            template,
+            app = Speech.appReading(sbn.packageName, appName),
+            sender = sender,
+            body = trimmed,
+        )
+        Speaker.speak(this, speech, prefs.pauseMusic)
     }
 
-    private fun extractText(n: Notification): String? {
+    /** (送信者, 本文)。送信者が分からなければ空文字 */
+    private fun extractText(n: Notification): Pair<String, String>? {
         val extras = n.extras ?: return null
         val title = extras.getCharSequence(Notification.EXTRA_TITLE)?.toString()?.trim().orEmpty()
 
@@ -51,15 +61,15 @@ class NotificationReader : NotificationListenerService() {
         if (messages != null && messages.isNotEmpty()) {
             val last = Notification.MessagingStyle.Message.getMessagesFromBundleArray(messages).lastOrNull()
             if (last != null) {
-                val sender = last.senderPerson?.name?.toString() ?: title
+                val sender = (last.senderPerson?.name?.toString() ?: title).trim()
                 val text = last.text?.toString()?.trim().orEmpty()
-                return listOf(sender, text).filter { it.isNotEmpty() }.joinToString("。")
+                if (text.isNotEmpty()) return sender to text
             }
         }
 
         val text = (extras.getCharSequence(Notification.EXTRA_BIG_TEXT)
             ?: extras.getCharSequence(Notification.EXTRA_TEXT))?.toString()?.trim().orEmpty()
-        return listOf(title, text).filter { it.isNotEmpty() }.joinToString("。")
+        return "" to listOf(title, text).filter { it.isNotEmpty() }.joinToString("。")
     }
 
     companion object {
