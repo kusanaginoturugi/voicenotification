@@ -17,6 +17,28 @@ object Speech {
         .replace(SPACE, " ")
         .trim()
 
+    /** 「ゆらが動画を送信しました」のような、本文の代わりに入る定型文 */
+    private val SENT = Regex("""^(?:.{1,24}が)?(.{1,16}?)を送信しました。?$""")
+
+    /** 読み上げても意味がない、まとめ通知の定型文 */
+    private val USELESS = listOf(
+        Regex("""^(?:.{0,24}。)?\d+\s*件の新規メッセージ$"""),
+        Regex("""^(?:.{0,24}。)?新しい通知が\s*\d+\s*件あります$"""),
+        Regex("""^(?:.{0,24}。)?\d+\s*件の(?:通知|メッセージ)$"""),
+    )
+
+    /**
+     * 通知の本文を読み上げ向けに直す。読む価値がなければ空文字を返す。
+     * LINE は画像やスタンプを送ると本文の代わりに定型文を入れてくるので、
+     * 送信者名の重複を取って言い回しを整える。
+     */
+    fun notice(body: String): String {
+        val t = body.trim()
+        if (USELESS.any { it.matches(t) }) return ""
+        SENT.find(t)?.let { return "${it.groupValues[1]}を送ってきました" }
+        return t
+    }
+
     private val HONORIFICS = listOf("さん", "くん", "ちゃん", "様", "さま", "先生", "氏", "君")
 
     /** 二重敬称を避けて「さん」を付ける */
