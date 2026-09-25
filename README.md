@@ -116,6 +116,29 @@ https://www.nhk.or.jp/rss/news/cat0.xml
 - `news.txt` が 2 時間より古ければ要約が止まっているとみなして、アプリは次の URL（RSS）に回す
 - PC が落ちていても RSS に落ちるので、ニュース自体は止まらない
 
+### ニュースのネットワーク構成
+
+通常は、自宅または職場 PC の LocalLLM で作った要約を、Tailscale 経由で端末へ渡す。LocalLLM の品質・速度を普段の経路にし、外部 API は使わない。
+
+```text
+NHK RSS → PC の voicenews.timer → LocalLLM → news.txt
+                                           ↓
+Android ← Tailscale ← voicenews-http (PC の 127.0.0.1:8090)
+```
+
+PC・Tailscale・LocalLLM のどれかが使えず、`news.txt` も取得できない／古いときは、クラウドの要約 API を第2フォールバックに使う。
+
+```text
+Android → 端末トークン付きのクラウド API → NHK RSS
+                                      └→ Gemini API（Gemma 4）→ 要約文
+```
+
+- Gemini の API キーは Android アプリには入れず、クラウド API の Secret としてだけ保管する
+- 個人利用中は Android が端末トークンを送る。Worker は固定の NHK RSS と固定プロンプトだけを処理し、Gemma 4 が返した読み辞書を要約本文へ適用して、要約を 15 分キャッシュする。トークンが漏れても Gemini API キーや任意のプロンプトは使えない
+- クラウド API も失敗したときだけ、現行どおり NHK RSS の見出しと概要を読む
+- クラウドフォールバックのコードは `fallback-worker/`。アプリの「非常用クラウド要約 API」には Worker URL を1つだけ、「非常用 API の端末トークン」には `DEVICE_TOKEN` を設定する。ニュースの URL 欄はPCの `news.txt` 用で、非常用経路だけを試すときは空でよい
+- 公開時は Firebase Authentication と App Check / Play Integrity を追加し、ユーザー単位の上限・停止を実装する（未実装）
+
 ## 構成
 
 ```

@@ -18,11 +18,12 @@ object NewsSource {
      * URL の中身を読み上げ文にする。RSS / Atom なら先頭 count 件の見出しと概要、
      * それ以外（要約済みのプレーンテキストなど）はそのまま返す。失敗したら例外
      */
-    fun fetchSpeech(url: String, count: Int): String {
+    fun fetchSpeech(url: String, count: Int, bearerToken: String? = null): String {
         val conn = (URL(url).openConnection() as HttpURLConnection).apply {
             connectTimeout = 5_000
             readTimeout = 15_000
             setRequestProperty("User-Agent", "VoiceNotification/0.1")
+            bearerToken?.let { setRequestProperty("Authorization", "Bearer $it") }
         }
         try {
             if (conn.responseCode != 200) error("HTTP ${conn.responseCode}")
@@ -39,10 +40,36 @@ object NewsSource {
         }
     }
 
-    /** 改行区切りの URL を上から順に試す。全滅なら最後の例外を投げる */
-    fun fetchFirst(urls: String, count: Int): String {
+    /**
+     * 改行区切りの URL を上から順に試す。PC の要約が取れないときだけクラウド要約を試し、
+     * 最後に既定の NHK RSS を読む。クラウド要約のトークンは Gemini API キーとは別物。
+     */
+    fun fetchFirst(urls: String, count: Int, fallbackUrl: String = "", fallbackToken: String = ""): String {
         var last: Exception? = null
-        for (u in urls.lines().map { it.trim() }.filter { it.isNotEmpty() }) {
+        val allUrls = urls.lines().map { it.trim() }.filter { it.isNotEmpty() }
+        // 単一URLの設定欄だが、過去の値や貼り付けで改行が混ざっても先頭URLだけを使う。
+        val fallback = fallbackUrl.lineSequence().map { it.trim() }.firstOrNull { it.isNotEmpty() }.orEmpty()
+        val hasFallback = fallback.isNotBlank() && fallbackToken.isNotBlank()
+        val primaryUrls = if (hasFallback) allUrls.filter { it != Prefs.DEFAULT_NEWS_URL } else allUrls
+        val rssUrls = if (hasFallback) allUrls.filter { it == Prefs.DEFAULT_NEWS_URL } else emptyList()
+
+        for (u in primaryUrls) {
+            try {
+                return fetchSpeech(u, count)
+            } catch (e: Exception) {
+                Log.w(TAG, "news fetch failed at $u: ${e.javaClass.simpleName} ${e.message}")
+                last = e
+            }
+        }
+        if (hasFallback) {
+            try {
+                return fetchSpeech(fallback, count, fallbackToken)
+            } catch (e: Exception) {
+                Log.w(TAG, "news fallback failed: ${e.javaClass.simpleName} ${e.message}")
+                last = e
+            }
+        }
+        for (u in rssUrls) {
             try {
                 return fetchSpeech(u, count)
             } catch (e: Exception) {

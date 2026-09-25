@@ -44,6 +44,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -74,6 +75,8 @@ fun Screen() {
     var newsHours by remember { mutableStateOf(prefs.newsHours) }
     var newsCount by remember { mutableStateOf(prefs.newsCount.toString()) }
     var newsUrl by remember { mutableStateOf(prefs.newsUrl) }
+    var newsFallbackUrl by remember { mutableStateOf(prefs.newsFallbackUrl) }
+    var newsFallbackToken by remember { mutableStateOf(prefs.newsFallbackToken) }
     var newsOnlyMusic by remember { mutableStateOf(prefs.newsOnlyWhenMusic) }
     var pauseMusic by remember { mutableStateOf(prefs.pauseMusic) }
     var pauseMusicForLongSpeech by remember { mutableStateOf(prefs.pauseMusicForLongSpeech) }
@@ -382,6 +385,27 @@ fun Screen() {
                     onValueChange = { newsUrl = it; prefs.newsUrl = it.trim() },
                     label = { Text("ニュースの URL（RSS か要約テキスト。1 行 1 つ、上から順に試す）") },
                     minLines = 2,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+            item {
+                OutlinedTextField(
+                    value = newsFallbackUrl,
+                    onValueChange = { newsFallbackUrl = it; prefs.newsFallbackUrl = it.trim() },
+                    label = { Text("非常用クラウド要約 API（任意）") },
+                    placeholder = { Text("https://voicenews-fallback.<account>.workers.dev/v1/news") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+            item {
+                OutlinedTextField(
+                    value = newsFallbackToken,
+                    onValueChange = { newsFallbackToken = it; prefs.newsFallbackToken = it.trim() },
+                    label = { Text("非常用 API の端末トークン") },
+                    supportingText = { Text("Gemini API キーではない。PC 側の要約が失敗したときだけ送る") },
+                    visualTransformation = PasswordVisualTransformation(),
+                    singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                 )
             }

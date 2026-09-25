@@ -7,6 +7,12 @@ class Prefs(context: Context) {
     private val sp: SharedPreferences =
         context.getSharedPreferences("prefs", Context.MODE_PRIVATE)
 
+    init {
+        val raw = sp.getString("news_fallback_url", "").orEmpty()
+        val normalized = raw.lineSequence().map { it.trim() }.firstOrNull { it.isNotEmpty() }.orEmpty()
+        if (raw != normalized) sp.edit().putString("news_fallback_url", normalized).apply()
+    }
+
     var serviceEnabled: Boolean
         get() = sp.getBoolean("service_enabled", false)
         set(v) = sp.edit().putBoolean("service_enabled", v).apply()
@@ -43,6 +49,16 @@ class Prefs(context: Context) {
     var newsUrl: String
         get() = sp.getString("news_url", DEFAULT_NEWS_URL) ?: DEFAULT_NEWS_URL
         set(v) = sp.edit().putString("news_url", v).apply()
+
+    /** LocalLLM の要約が取れないときだけ使う、クラウド要約 API の URL */
+    var newsFallbackUrl: String
+        get() = sp.getString("news_fallback_url", "") ?: ""
+        set(v) = sp.edit().putString("news_fallback_url", v).apply()
+
+    /** クラウド要約 API 用の端末トークン。Gemini の API キーではない */
+    var newsFallbackToken: String
+        get() = sp.getString("news_fallback_token", "") ?: ""
+        set(v) = sp.edit().putString("news_fallback_token", v).apply()
 
     var newsOnlyWhenMusic: Boolean
         get() = sp.getBoolean("news_only_music", true)

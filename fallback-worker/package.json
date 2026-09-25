@@ -1,0 +1,12 @@
+{
+  "name": "voicenews-fallback-worker",
+  "private": true,
+  "scripts": {
+    "check": "tsc --noEmit",
+    "types": "wrangler types"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3",
+    "wrangler": "^4.43.0"
+  }
+}

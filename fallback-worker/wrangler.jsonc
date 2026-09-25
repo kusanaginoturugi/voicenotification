@@ -1,0 +1,18 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "voicenews-fallback",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-09-25",
+  "vars": {
+    "GEMINI_MODEL": "gemma-4-26b-a4b-it"
+  },
+  "secrets": {
+    "required": ["DEVICE_TOKEN", "GEMINI_API_KEY"]
+  },
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 1
+  },
+  "workers_dev": true,
+  "preview_urls": false
+}

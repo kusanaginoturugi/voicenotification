@@ -27,6 +27,8 @@ Android で以下を日本語 TTS で読み上げる常駐アプリ。
 - [x] ニュースを LocalLLM で要約してから読む（2026-09-17、実機で VOICEVOX 読み上げまで確認）
 - [x] ニュースを時刻指定（9、12、15、18 時）に変更。要約は 5 分前
 - [x] 一度要約に使った記事を除外（PC 側で検証済み）
+- [x] LocalLLM / PC 障害時のニュース要約フォールバックを実装・デプロイ・実機確認。Cloudflare Worker が Gemma 4 で固定の NHK RSS を要約し、読み辞書を最終適用する。端末トークンと15分キャッシュで個人利用し、Gemini API キーは Worker Secret のみ（2026-09-25）
+- [ ] 公開対応: Firebase Authentication と App Check / Play Integrity を Worker に追加し、ユーザー単位の利用上限・停止を実装する（#3）
 - [x] 時刻指定版の APK を実機に入れた。ニュースのアラームが翌 9:00 に登録されたことを確認
 - [ ] 翌日のニュース発火を確認
 - [x] チャイムの音量設定（既定 50%）。実機でスライダー表示と試聴を確認
@@ -120,6 +122,8 @@ Android で以下を日本語 TTS で読み上げる常駐アプリ。
 - ダッキング中に長文がキューへ続いた場合も、長文の開始前に一時停止用フォーカスへ昇格する。キュー完了後は従来どおり 400ms 後にフォーカスを返す
 - ビルド・実機での一時停止／再開確認は自宅で実施予定
 - ニュース要約の LocalLLM に、誤読しやすい固有名詞だけを `[[表記|カタカナ読み]]` で返す指示を追加。`Speech.sanitize` はこの記法をカタカナ読みに置換してから VOICEVOX / 端末 TTS へ渡す。通知は LocalLLM を通さない。`sh -n tools/news_summary.sh` と `assembleDebug` は通過、実際の要約・発話は次回ニュースで確認する
+- Cloudflare Worker `voicenews-fallback` をデプロイ。`gemma-4-26b-a4b-it` が要約本文と読み辞書をJSONで返し、Workerが `[[表記|カタカナ]]` に組み立ててAndroidへ返す。Gemini APIキーはWorker Secret、Androidは端末トークンだけを送る
+- Workerの `/v1/news` をcurlで確認し、PC側ニュースURLを空にしたPixel 8aの「ニュース」ボタンからWorker要約が再生されることを確認。非常用URL欄に旧複数行設定が残っても先頭URLへ正規化する
 
 ## 引き継ぎ
 
