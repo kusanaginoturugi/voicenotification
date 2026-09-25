@@ -8,8 +8,14 @@ object Speech {
     private val TOKEN = Regex("""[A-Za-z0-9_\-+/=]{20,}""")
     private val SPACE = Regex("""[ \t　]+""")
     private val BLANK_LINES = Regex("""\n{2,}""")
+    /**
+     * LocalLLM がニュース本文に付ける読み指定。
+     * 例: [[石破茂|イシバシゲル]] → イシバシゲル
+     */
+    private val RUBY = Regex("""\[\[[^\[\]|]{1,64}\|([ァ-ヺー・]{1,64})]]""")
 
     fun sanitize(text: String): String = text
+        .replace(RUBY) { it.groupValues[1] }
         .replace(URL, "リンク")
         .replace(MAIL, "メールアドレス")
         .replace(TOKEN, "")

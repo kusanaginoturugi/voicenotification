@@ -64,6 +64,19 @@ curl -s localhost:50021/speakers | jq '.[] | {name, styles: [.styles[] | {id, na
 - 全 URL が落ちていれば自動で端末の TTS に戻る。接続タイムアウトは 1.5 秒なので待ちは短い
 - エンジンは平文 HTTP なので Tailscale の外に出さないこと
 
+ニュースの LocalLLM 要約では、誤読しやすい固有名詞を `[[表記|カタカナ読み]]` と注釈する。アプリは合成直前にこの記法を読みへ置換するため、VOICEVOX にはカタカナが渡る。例: `[[石破茂|イシバシゲル]]` は「イシバシゲル」と発話する。通知は LocalLLM を通さないため、この注釈を使わない。
+
+### VOICEVOX 障害時の端末 TTS を変える
+
+VOICEVOX の接続先がすべて使えないとき、または「音声合成（VOICEVOX）」の URL を空にしたときは、Android の既定の音声合成エンジンで読む。既定が Google 音声サービスなら Google の声になる。
+
+Android に [AquesTalk TTS](https://play.google.com/store/apps/details?id=com.a_quest.aquestalka) または [AquesTalk TTS Pro](https://play.google.com/store/apps/details?id=com.a_quest.aquestalkb) を入れ、Android の「テキスト読み上げの設定」で優先エンジンに選べば、フォールバック時にもゆっくり系の声を使える。アプリ本体の変更や PC は不要。
+
+- AquesTalk TTS: 従来のゆっくりボイス。声種と Android 側の速度・高さを設定できる
+- AquesTalk TTS Pro: AquesTalk10。声質パラメータとユーザー辞書を設定できる
+
+Android の既定 TTS を変えるので、この端末で既定 TTS を使う他アプリの声も変わる。VOICEVOX を優先して使い続ける場合は、VOICEVOX の URL を残しておけばよい。
+
 ## ニュースを LocalLLM で要約する
 
 RSS をそのまま読むと長いので、PC 側で llama-server に要約させたテキストを読ませる。
