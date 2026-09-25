@@ -48,7 +48,7 @@ class NotificationReader : NotificationListenerService() {
             sender = sender,
             body = trimmed,
         )
-        Speaker.speak(this, speech, prefs.pauseMusic)
+        Speaker.speak(this, speech, prefs.pauseMusic, prefs.pauseMusicForLongSpeech)
     }
 
     /** (送信者, 本文)。送信者が分からなければ空文字 */

@@ -72,6 +72,11 @@ class Prefs(context: Context) {
         get() = sp.getBoolean("pause_music", false)
         set(v) = sp.edit().putBoolean("pause_music", v).apply()
 
+    /** 長い読み上げだけ音楽を一時停止する。短い読み上げは音量を下げる */
+    var pauseMusicForLongSpeech: Boolean
+        get() = sp.getBoolean("pause_music_for_long_speech", true)
+        set(v) = sp.edit().putBoolean("pause_music_for_long_speech", v).apply()
+
     /** ニュース前のチャイム。Chime.key */
     var newsChime: String
         get() = sp.getString("news_chime", "two") ?: "two"

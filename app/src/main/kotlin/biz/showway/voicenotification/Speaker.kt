@@ -21,6 +21,8 @@ import java.util.concurrent.Executors
  */
 object Speaker {
     private const val TAG = "Speaker"
+    /** 日本語 TTS でおよそ 10 秒以上になる長さ。時報や短い通知はダッキングのままにする */
+    private const val LONG_SPEECH_CHARS = 80
 
     private sealed class Job(val pause: Boolean) {
         class Text(val text: String, pause: Boolean) : Job(pause)
@@ -45,6 +47,7 @@ object Speaker {
 
     private var audio: AudioManager? = null
     private var focusRequest: AudioFocusRequest? = null
+    private var focusPausesMusic = false
 
     private val attrs: AudioAttributes = AudioAttributes.Builder()
         .setUsage(AudioAttributes.USAGE_ASSISTANCE_NAVIGATION_GUIDANCE)
@@ -90,16 +93,22 @@ object Speaker {
         return ok
     }
 
-    fun speak(context: Context, raw: String, pause: Boolean = false) {
+    fun speak(
+        context: Context,
+        raw: String,
+        pause: Boolean = false,
+        pauseForLongSpeech: Boolean = false,
+    ) {
         val text = Speech.sanitize(raw)
         if (text.isBlank()) return
         init(context)
         val prefs = Prefs(context)
+        val shouldPause = pause || (pauseForLongSpeech && text.length >= LONG_SPEECH_CHARS)
         if (!RemoteTts.enabled(prefs)) {
-            handler.post { queue.addLast(Job.Text(text, pause)); pump() }
+            handler.post { queue.addLast(Job.Text(text, shouldPause)); pump() }
             return
         }
-        val jobs = RemoteTts.chunk(text).map { Job.Remote(it, pause) }
+        val jobs = RemoteTts.chunk(text).map { Job.Remote(it, shouldPause) }
         handler.post { queue.addAll(jobs); pump() }
         jobs.forEach { job ->
             synth.execute {
@@ -140,7 +149,7 @@ object Speaker {
             return
         }
         current = job
-        if (focusRequest == null) requestFocus(job.pause)
+        if (focusRequest == null || (job.pause && !focusPausesMusic)) requestFocus(job.pause)
         when (job) {
             is Job.Text -> {
                 val r = tts?.speak(job.text, TextToSpeech.QUEUE_ADD, null, "u${counter++}")
@@ -228,6 +237,7 @@ object Speaker {
             .setOnAudioFocusChangeListener { }
             .build()
         focusRequest = req
+        focusPausesMusic = pause
         am.requestAudioFocus(req)
     }
 
@@ -235,5 +245,6 @@ object Speaker {
         val req = focusRequest ?: return
         audio?.abandonAudioFocusRequest(req)
         focusRequest = null
+        focusPausesMusic = false
     }
 }

@@ -76,6 +76,7 @@ fun Screen() {
     var newsUrl by remember { mutableStateOf(prefs.newsUrl) }
     var newsOnlyMusic by remember { mutableStateOf(prefs.newsOnlyWhenMusic) }
     var pauseMusic by remember { mutableStateOf(prefs.pauseMusic) }
+    var pauseMusicForLongSpeech by remember { mutableStateOf(prefs.pauseMusicForLongSpeech) }
     var muteInSilent by remember { mutableStateOf(prefs.muteInSilentMode) }
     var notificationMax by remember { mutableStateOf(prefs.notificationMaxChars.toString()) }
     var template by remember { mutableStateOf(prefs.notificationTemplate) }
@@ -282,8 +283,13 @@ fun Screen() {
                 }
             }
             item {
-                SwitchRow("読み上げ中は音楽を一時停止（オフなら音量を下げる）", pauseMusic) {
+                SwitchRow("すべての読み上げ中は音楽を一時停止", pauseMusic) {
                     pauseMusic = it; prefs.pauseMusic = it
+                }
+            }
+            item {
+                SwitchRow("長い読み上げ中は音楽を一時停止（短いものは音量を下げる）", pauseMusicForLongSpeech) {
+                    pauseMusicForLongSpeech = it; prefs.pauseMusicForLongSpeech = it
                 }
             }
 

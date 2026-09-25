@@ -45,7 +45,9 @@ class VoiceService : Service() {
             Scheduler.ACTION_CALENDAR -> calendarScan(prefs)
             Scheduler.ACTION_NEWS -> news(prefs, force = false)
             ACTION_NEWS_NOW -> news(prefs, force = true)
-            ACTION_SPEAK -> intent.getStringExtra(EXTRA_TEXT)?.let { Speaker.speak(this, it, prefs.pauseMusic) }
+            ACTION_SPEAK -> intent.getStringExtra(EXTRA_TEXT)?.let {
+                Speaker.speak(this, it, prefs.pauseMusic, prefs.pauseMusicForLongSpeech)
+            }
             ACTION_CHIME_PREVIEW -> Chime.uriFor(this, prefs)?.let { Speaker.chime(this, it, prefs.newsChimeVolume, prefs.pauseMusic) }
             ACTION_STOP -> {
                 Speaker.stop(this)
@@ -72,7 +74,7 @@ class VoiceService : Service() {
             append(if (h % 12 == 0) 12 else h % 12)
             append("時です。")
         }
-        Speaker.speak(this, timeText, prefs.pauseMusic)
+        Speaker.speak(this, timeText, prefs.pauseMusic, prefs.pauseMusicForLongSpeech)
 
         if (!prefs.calendarEnabled) return
         val now = System.currentTimeMillis()
@@ -80,7 +82,7 @@ class VoiceService : Service() {
         if (events.isEmpty()) return
         val sb = StringBuilder("この後の予定は、")
         events.forEach { sb.append(CalendarSource.timeText(it.begin)).append("、").append(it.title).append("。") }
-        Speaker.speak(this, sb.toString(), prefs.pauseMusic)
+        Speaker.speak(this, sb.toString(), prefs.pauseMusic, prefs.pauseMusicForLongSpeech)
     }
 
     private fun calendarScan(prefs: Prefs) {
@@ -99,7 +101,7 @@ class VoiceService : Service() {
                 .append(e.title).append("。")
         }
         prefs.announcedEvents = announced
-        if (sb.isNotEmpty()) Speaker.speak(this, sb.toString(), prefs.pauseMusic)
+        if (sb.isNotEmpty()) Speaker.speak(this, sb.toString(), prefs.pauseMusic, prefs.pauseMusicForLongSpeech)
     }
 
     private fun news(prefs: Prefs, force: Boolean) {
@@ -117,7 +119,7 @@ class VoiceService : Service() {
                 if (force) "ニュースの取得に失敗しました。" else return@execute
             }
             Chime.uriFor(this, prefs)?.let { Speaker.chime(this, it, prefs.newsChimeVolume, prefs.pauseMusic) }
-            Speaker.speak(this, text, prefs.pauseMusic)
+            Speaker.speak(this, text, prefs.pauseMusic, prefs.pauseMusicForLongSpeech)
         }
     }
 
