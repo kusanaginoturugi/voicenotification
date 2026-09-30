@@ -1,5 +1,6 @@
 package biz.showway.voicenotification
 
+import android.content.Context
 import android.util.Log
 import android.util.Xml
 import org.xmlpull.v1.XmlPullParser
@@ -18,7 +19,7 @@ object NewsSource {
      * URL の中身を読み上げ文にする。RSS / Atom なら先頭 count 件の見出しと概要、
      * それ以外（要約済みのプレーンテキストなど）はそのまま返す。失敗したら例外
      */
-    fun fetchSpeech(url: String, count: Int, bearerToken: String? = null): String {
+    fun fetchSpeech(context: Context, url: String, count: Int, bearerToken: String? = null): String {
         val conn = (URL(url).openConnection() as HttpURLConnection).apply {
             connectTimeout = 5_000
             readTimeout = 15_000
@@ -34,7 +35,7 @@ object NewsSource {
             if (!text.startsWith("<") && modified > 0 &&
                 System.currentTimeMillis() - modified > SUMMARY_MAX_AGE_MS
             ) error("stale summary")
-            return if (text.startsWith("<")) toSpeech(parse(body.inputStream(), count)) else text
+            return if (text.startsWith("<")) toSpeech(context, parse(body.inputStream(), count)) else text
         } finally {
             conn.disconnect()
         }
@@ -44,7 +45,7 @@ object NewsSource {
      * 改行区切りの URL を上から順に試す。PC の要約が取れないときだけクラウド要約を試し、
      * 最後に既定の NHK RSS を読む。クラウド要約のトークンは Gemini API キーとは別物。
      */
-    fun fetchFirst(urls: String, count: Int, fallbackUrl: String = "", fallbackToken: String = ""): String {
+    fun fetchFirst(context: Context, urls: String, count: Int, fallbackUrl: String = "", fallbackToken: String = ""): String {
         var last: Exception? = null
         val allUrls = urls.lines().map { it.trim() }.filter { it.isNotEmpty() }
         // 単一URLの設定欄だが、過去の値や貼り付けで改行が混ざっても先頭URLだけを使う。
@@ -55,7 +56,7 @@ object NewsSource {
 
         for (u in primaryUrls) {
             try {
-                return fetchSpeech(u, count)
+                return fetchSpeech(context, u, count)
             } catch (e: Exception) {
                 Log.w(TAG, "news fetch failed at $u: ${e.javaClass.simpleName} ${e.message}")
                 last = e
@@ -63,7 +64,7 @@ object NewsSource {
         }
         if (hasFallback) {
             try {
-                return fetchSpeech(fallback, count, fallbackToken)
+                return fetchSpeech(context, fallback, count, fallbackToken)
             } catch (e: Exception) {
                 Log.w(TAG, "news fallback failed: ${e.javaClass.simpleName} ${e.message}")
                 last = e
@@ -71,7 +72,7 @@ object NewsSource {
         }
         for (u in rssUrls) {
             try {
-                return fetchSpeech(u, count)
+                return fetchSpeech(context, u, count)
             } catch (e: Exception) {
                 Log.w(TAG, "news fetch failed at $u: ${e.javaClass.simpleName} ${e.message}")
                 last = e
@@ -114,14 +115,14 @@ object NewsSource {
             .replace(Regex("\\s+"), " ")
             .trim()
 
-    fun toSpeech(items: List<NewsItem>): String {
-        if (items.isEmpty()) return "ニュースは取得できませんでした。"
-        val sb = StringBuilder("ニュースです。")
+    fun toSpeech(context: Context, items: List<NewsItem>): String {
+        if (items.isEmpty()) return context.getString(R.string.news_unavailable)
+        val sb = StringBuilder(context.getString(R.string.news_intro))
         items.forEach { item ->
             sb.append(item.title).append("。")
             if (item.description.isNotEmpty()) sb.append(item.description).append("。")
         }
-        sb.append("以上です。")
+        sb.append(context.getString(R.string.news_outro))
         return sb.toString()
     }
 }

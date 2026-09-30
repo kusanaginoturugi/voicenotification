@@ -69,19 +69,16 @@ class VoiceService : Service() {
     private fun chime(prefs: Prefs) {
         val h = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
         // 時刻の文は毎回同じなので、予定と分けて読む（同じ文なら合成結果が使い回される）
-        val timeText = buildString {
-            append(if (h < 12) "午前" else "午後")
-            append(if (h % 12 == 0) 12 else h % 12)
-            append("時です。")
-        }
+        val hour = if (h % 12 == 0) 12 else h % 12
+        val timeText = getString(if (h < 12) R.string.time_am else R.string.time_pm, hour)
         Speaker.speak(this, timeText, prefs.pauseMusic, prefs.pauseMusicForLongSpeech)
 
         if (!prefs.calendarEnabled) return
         val now = System.currentTimeMillis()
         val events = CalendarSource.upcoming(this, now, now + 60 * 60_000L)
         if (events.isEmpty()) return
-        val sb = StringBuilder("この後の予定は、")
-        events.forEach { sb.append(CalendarSource.timeText(it.begin)).append("、").append(it.title).append("。") }
+        val sb = StringBuilder(getString(R.string.upcoming_events))
+        events.forEach { sb.append(CalendarSource.timeText(this, it.begin)).append("、").append(it.title).append("。") }
         Speaker.speak(this, sb.toString(), prefs.pauseMusic, prefs.pauseMusicForLongSpeech)
     }
 
@@ -97,8 +94,8 @@ class VoiceService : Service() {
             if (e.key in announced) return@forEach
             announced += e.key
             val minutes = ((e.begin - now) / 60_000L).coerceAtLeast(0)
-            sb.append(if (minutes == 0L) "まもなく、" else "あと${minutes}分で、")
-                .append(e.title).append("。")
+            sb.append(if (minutes == 0L) getString(R.string.event_soon, e.title)
+                else getString(R.string.event_in_minutes, minutes, e.title))
         }
         prefs.announcedEvents = announced
         if (sb.isNotEmpty()) Speaker.speak(this, sb.toString(), prefs.pauseMusic, prefs.pauseMusicForLongSpeech)
@@ -113,10 +110,10 @@ class VoiceService : Service() {
         val count = prefs.newsCount.coerceIn(1, 20)
         worker.execute {
             val text = try {
-                NewsSource.fetchFirst(url, count, prefs.newsFallbackUrl, prefs.newsFallbackToken)
+                NewsSource.fetchFirst(this, url, count, prefs.newsFallbackUrl, prefs.newsFallbackToken)
             } catch (e: Exception) {
                 Log.w(TAG, "news fetch failed", e)
-                if (force) "ニュースの取得に失敗しました。" else return@execute
+                if (force) getString(R.string.news_fetch_failed) else return@execute
             }
             Chime.uriFor(this, prefs)?.let { Speaker.chime(this, it, prefs.newsChimeVolume, prefs.pauseMusic) }
             Speaker.speak(this, text, prefs.pauseMusic, prefs.pauseMusicForLongSpeech)
@@ -130,7 +127,7 @@ class VoiceService : Service() {
         )
         return Notification.Builder(this, App.CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_notification)
-            .setContentTitle("読み上げ待機中")
+            .setContentTitle(getString(R.string.service_waiting))
             .setContentIntent(open)
             .setOngoing(true)
             .build()

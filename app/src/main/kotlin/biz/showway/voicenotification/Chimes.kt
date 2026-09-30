@@ -4,15 +4,15 @@ import android.content.Context
 import android.net.Uri
 
 /** 内蔵チャイム。key が Prefs に保存される */
-enum class Chime(val key: String, val label: String, val res: Int) {
-    NONE("none", "なし", 0),
-    TWO("two", "ちゃんちゃん", R.raw.chime_two),
-    ARPEGGIO("arpeggio", "オルゴール", R.raw.chime_arpeggio),
-    PINPON("pinpon", "ピンポンパンポン", R.raw.chime_pinpon),
-    RADIO("radio", "ラジオ風ベル", R.raw.chime_radio),
-    JNR_SHORT("jnr_short", "国鉄風オルゴール（短）", R.raw.chime_jnr_short),
-    JNR("jnr", "国鉄風オルゴール（フル）", R.raw.chime_jnr),
-    CUSTOM("custom", "ファイルを指定", 0);
+enum class Chime(val key: String, val labelRes: Int, val res: Int) {
+    NONE("none", R.string.chime_none, 0),
+    TWO("two", R.string.chime_two, R.raw.chime_two),
+    ARPEGGIO("arpeggio", R.string.chime_arpeggio, R.raw.chime_arpeggio),
+    PINPON("pinpon", R.string.chime_pinpon, R.raw.chime_pinpon),
+    RADIO("radio", R.string.chime_radio, R.raw.chime_radio),
+    JNR_SHORT("jnr_short", R.string.chime_jnr_short, R.raw.chime_jnr_short),
+    JNR("jnr", R.string.chime_jnr, R.raw.chime_jnr),
+    CUSTOM("custom", R.string.chime_custom, 0);
 
     companion object {
         fun of(key: String) = entries.firstOrNull { it.key == key } ?: TWO

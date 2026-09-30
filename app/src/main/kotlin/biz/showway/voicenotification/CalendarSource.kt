@@ -36,7 +36,7 @@ object CalendarSource {
                 if (begin <= from || begin > to) continue
                 out += Event(
                     id = c.getLong(0),
-                    title = c.getString(1)?.trim().orEmpty().ifEmpty { "予定" },
+                    title = c.getString(1)?.trim().orEmpty().ifEmpty { context.getString(R.string.calendar_untitled) },
                     begin = begin,
                     allDay = c.getInt(3) != 0,
                 )
@@ -45,10 +45,11 @@ object CalendarSource {
         return out.filter { !it.allDay }
     }
 
-    fun timeText(millis: Long): String {
+    fun timeText(context: Context, millis: Long): String {
         val c = Calendar.getInstance().apply { timeInMillis = millis }
         val h = c.get(Calendar.HOUR_OF_DAY)
         val m = c.get(Calendar.MINUTE)
-        return if (m == 0) "${h}時" else "${h}時${m}分"
+        return if (m == 0) context.getString(R.string.calendar_hour, h)
+        else context.getString(R.string.calendar_hour_minute, h, m)
     }
 }

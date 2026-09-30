@@ -35,6 +35,10 @@ android {
     buildFeatures {
         compose = true
     }
+    androidResources {
+        // values-xx を検出して Android 13 以降の「アプリの言語」に自動で出す。
+        generateLocaleConfig = true
+    }
 }
 
 dependencies {

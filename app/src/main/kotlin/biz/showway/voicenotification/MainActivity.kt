@@ -8,16 +8,20 @@ import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -34,24 +38,39 @@ import androidx.compose.material3.Slider
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.res.stringResource
+import androidx.annotation.StringRes
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.runtime.DisposableEffect
 
 data class AppEntry(val pkg: String, val label: String)
+
+private enum class SettingsPage(val title: Int, val summary: Int) {
+    READING(R.string.page_reading, R.string.page_reading_summary),
+    AUTOMATION(R.string.page_automation, R.string.page_automation_summary),
+    NOTIFICATIONS(R.string.page_notifications, R.string.page_notifications_summary),
+    ENGINE(R.string.page_engine, R.string.page_engine_summary),
+    SYSTEM(R.string.page_system, R.string.page_system_summary),
+}
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -81,6 +100,7 @@ fun Screen() {
     var pauseMusic by remember { mutableStateOf(prefs.pauseMusic) }
     var pauseMusicForLongSpeech by remember { mutableStateOf(prefs.pauseMusicForLongSpeech) }
     var muteInSilent by remember { mutableStateOf(prefs.muteInSilentMode) }
+    var builtInSpeakerVolume by remember { mutableFloatStateOf(prefs.builtInSpeakerVolume) }
     var notificationMax by remember { mutableStateOf(prefs.notificationMaxChars.toString()) }
     var template by remember { mutableStateOf(prefs.notificationTemplate) }
     var templatePlain by remember { mutableStateOf(prefs.notificationTemplatePlain) }
@@ -103,6 +123,9 @@ fun Screen() {
     var postOk by remember { mutableStateOf(hasPostPermission(ctx)) }
 
     val apps = remember { installedApps(ctx) }
+    var page by remember { mutableStateOf<SettingsPage?>(null) }
+
+    BackHandler(enabled = page != null) { page = null }
 
     // 設定画面から戻ったときに権限状態を取り直す
     val owner = LocalLifecycleOwner.current
@@ -137,65 +160,77 @@ fun Screen() {
         if (serviceEnabled) VoiceService.start(ctx, null) else VoiceService.stop(ctx)
     }
 
-    Scaffold(topBar = { TopAppBar(title = { Text("VoiceNotification") }) }) { pad ->
+    if (page == null) {
+        SettingsHome(onOpen = { page = it })
+    } else Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text(stringResource(page!!.title)) },
+                navigationIcon = {
+                    TextButton(onClick = { page = null }) { Text(stringResource(R.string.button_back)) }
+                },
+            )
+        },
+    ) { pad ->
         LazyColumn(
             modifier = Modifier.fillMaxSize().padding(pad).padding(horizontal = 16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
+            if (page == SettingsPage.READING) {
             item {
-                SwitchRow("読み上げサービス", serviceEnabled) {
+                SwitchRow(stringResource(R.string.service_enabled), serviceEnabled) {
                     serviceEnabled = it
                     applyService()
                 }
             }
             item {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedButton(onClick = { VoiceService.start(ctx, VoiceService.ACTION_SPEAK, "テストです。読み上げは正常に動いています。") }) { Text("テスト") }
-                    OutlinedButton(onClick = { VoiceService.start(ctx, Scheduler.ACTION_CHIME) }) { Text("時報") }
-                    OutlinedButton(onClick = { VoiceService.start(ctx, VoiceService.ACTION_NEWS_NOW) }) { Text("ニュース") }
-                    OutlinedButton(onClick = { Speaker.stop(ctx) }) { Text("停止") }
+                    OutlinedButton(onClick = { VoiceService.start(ctx, VoiceService.ACTION_SPEAK, ctx.getString(R.string.test_speech)) }) { Text(stringResource(R.string.button_test)) }
+                    OutlinedButton(onClick = { VoiceService.start(ctx, Scheduler.ACTION_CHIME) }) { Text(stringResource(R.string.button_chime)) }
+                    OutlinedButton(onClick = { VoiceService.start(ctx, VoiceService.ACTION_NEWS_NOW) }) { Text(stringResource(R.string.button_news)) }
+                    OutlinedButton(onClick = { Speaker.stop(ctx) }) { Text(stringResource(R.string.button_stop)) }
                 }
             }
 
-            item { Section("権限") }
+            }
+
+            if (page == SettingsPage.SYSTEM) {
+            item { Section(R.string.section_permissions) }
             item {
-                StatusRow("通知へのアクセス", listenerOk) {
+                StatusRow(stringResource(R.string.permission_listener), listenerOk) {
                     ctx.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
                 }
             }
             item {
-                StatusRow("カレンダー読み取り", calendarOk) {
+                StatusRow(stringResource(R.string.permission_calendar), calendarOk) {
                     permLauncher.launch(arrayOf(Manifest.permission.READ_CALENDAR))
                 }
             }
             item {
-                StatusRow("正確なアラーム", exactOk) {
+                StatusRow(stringResource(R.string.permission_exact_alarm), exactOk) {
                     ctx.startActivity(
                         Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM, Uri.parse("package:${ctx.packageName}"))
                     )
                 }
             }
             if (Build.VERSION.SDK_INT >= 33) item {
-                StatusRow("通知の表示", postOk) {
+                StatusRow(stringResource(R.string.permission_notifications), postOk) {
                     permLauncher.launch(arrayOf(Manifest.permission.POST_NOTIFICATIONS))
                 }
             }
-            item {
-                OutlinedButton(onClick = { ctx.startActivity(Intent("com.android.settings.TTS_SETTINGS")) }) {
-                    Text("音声（TTS）の設定を開く")
-                }
             }
 
-            item { Section("音声合成（VOICEVOX）") }
+            if (page == SettingsPage.ENGINE) {
+            item { Section(R.string.section_voicevox) }
             item {
-                Text("URL を 1 行に 1 つ。上から順に試して、最初に応答した方を使う。空なら端末の TTS",
+                Text(stringResource(R.string.voicevox_help),
                     style = MaterialTheme.typography.bodySmall)
             }
             item {
                 OutlinedTextField(
                     value = ttsUrls,
                     onValueChange = { ttsUrls = it; prefs.ttsUrls = it },
-                    label = { Text("エンジンの URL") },
+                    label = { Text(stringResource(R.string.voicevox_url)) },
                     placeholder = { Text("http://13400f.tailb46b1.ts.net:50021") },
                     minLines = 2,
                     modifier = Modifier.fillMaxWidth(),
@@ -220,16 +255,16 @@ fun Screen() {
                     }) {
                         Text(
                             when {
-                                speakerLoading -> "話者を取得中…"
-                                ttsSpeakerName.isNotEmpty() -> "話者: $ttsSpeakerName（$ttsSpeaker）"
-                                else -> "話者を選ぶ（今は ID $ttsSpeaker）"
+                                speakerLoading -> ctx.getString(R.string.voicevox_loading_speakers)
+                                ttsSpeakerName.isNotEmpty() -> ctx.getString(R.string.voicevox_speaker_selected, ttsSpeakerName, ttsSpeaker)
+                                else -> ctx.getString(R.string.voicevox_choose_speaker, ttsSpeaker)
                             }
                         )
                     }
                     DropdownMenu(expanded = speakerMenu, onDismissRequest = { speakerMenu = false }) {
                         speakers.forEach { sp ->
                             DropdownMenuItem(
-                                text = { Text("${sp.label}（${sp.id}）") },
+                                text = { Text(ctx.getString(R.string.voicevox_speaker_selected, sp.label, sp.id)) },
                                 onClick = {
                                     ttsSpeaker = sp.id.toString(); prefs.ttsSpeaker = sp.id
                                     ttsSpeakerName = sp.label; prefs.ttsSpeakerName = sp.label
@@ -239,13 +274,13 @@ fun Screen() {
                         }
                     }
                     if (!speakerLoading && speakers.isEmpty() && ttsSpeakerName.isEmpty()) {
-                        Text("エンジンに繋がると名前で選べる", style = MaterialTheme.typography.bodySmall)
+                        Text(stringResource(R.string.voicevox_speaker_help), style = MaterialTheme.typography.bodySmall)
                     }
                 }
             }
             item {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    DecimalField("音量", ttsVolume) {
+                    DecimalField(stringResource(R.string.voicevox_volume), ttsVolume) {
                         ttsVolume = it
                         it.toFloatOrNull()?.let { f -> prefs.ttsVolume = f }
                     }
@@ -257,7 +292,7 @@ fun Screen() {
                                 v.toFloatOrNull()?.let { f -> prefs.ttsSpeed = f }
                             }
                         },
-                        label = { Text("速度") },
+                        label = { Text(stringResource(R.string.voicevox_speed)) },
                         singleLine = true,
                         modifier = Modifier.width(120.dp),
                     )
@@ -266,64 +301,86 @@ fun Screen() {
             item {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                     OutlinedButton(onClick = {
-                        probeResult = "キャッシュを ${RemoteTts.clearCache(ctx)} 件削除"
-                    }) { Text("音声キャッシュを消す") }
+                        probeResult = ctx.getString(R.string.cache_cleared, RemoteTts.clearCache(ctx))
+                    }) { Text(stringResource(R.string.button_clear_cache)) }
                     OutlinedButton(onClick = {
-                        probeResult = "確認中…"
+                        probeResult = ctx.getString(R.string.checking)
                         Thread {
                             val r = RemoteTts.probe(prefs).joinToString("\n") { (u, v) -> "$v  $u" }
-                            (ctx as? ComponentActivity)?.runOnUiThread { probeResult = r.ifEmpty { "URL が空" } }
+                            (ctx as? ComponentActivity)?.runOnUiThread { probeResult = r.ifEmpty { ctx.getString(R.string.empty_url) } }
                         }.start()
-                    }) { Text("接続テスト") }
+                    }) { Text(stringResource(R.string.button_connection_test)) }
                     Text(probeResult, style = MaterialTheme.typography.bodySmall)
                 }
             }
-
-            item { Section("共通") }
             item {
-                SwitchRow("マナーモード中は自動の読み上げをしない（ボタンからは鳴る）", muteInSilent) {
+                OutlinedButton(onClick = { ctx.startActivity(Intent("com.android.settings.TTS_SETTINGS")) }) {
+                    Text(stringResource(R.string.button_open_tts_settings))
+                }
+            }
+
+            }
+
+            if (page == SettingsPage.READING) {
+            item { Section(R.string.section_common) }
+            item {
+                SwitchRow(stringResource(R.string.mute_in_silent), muteInSilent) {
                     muteInSilent = it; prefs.muteInSilentMode = it
                 }
             }
             item {
-                SwitchRow("すべての読み上げ中は音楽を一時停止", pauseMusic) {
+                Text(stringResource(R.string.built_in_speaker_volume, (builtInSpeakerVolume * 100).toInt()), style = MaterialTheme.typography.labelLarge)
+                Text(stringResource(R.string.built_in_speaker_volume_help), style = MaterialTheme.typography.bodySmall)
+                Slider(
+                    value = builtInSpeakerVolume,
+                    onValueChange = { builtInSpeakerVolume = it },
+                    onValueChangeFinished = { prefs.builtInSpeakerVolume = builtInSpeakerVolume },
+                    valueRange = 0.05f..1f,
+                    steps = 18,
+                )
+            }
+            item {
+                SwitchRow(stringResource(R.string.pause_music), pauseMusic) {
                     pauseMusic = it; prefs.pauseMusic = it
                 }
             }
             item {
-                SwitchRow("長い読み上げ中は音楽を一時停止（短いものは音量を下げる）", pauseMusicForLongSpeech) {
+                SwitchRow(stringResource(R.string.pause_music_long), pauseMusicForLongSpeech) {
                     pauseMusicForLongSpeech = it; prefs.pauseMusicForLongSpeech = it
                 }
             }
 
-            item { Section("時報") }
+            }
+
+            if (page == SettingsPage.AUTOMATION) {
+            item { Section(R.string.section_chime) }
             item {
-                SwitchRow("毎時 0 分に時刻と 1 時間以内の予定を読む", chime) {
+                SwitchRow(stringResource(R.string.hourly_chime), chime) {
                     chime = it; prefs.chimeEnabled = it; Scheduler.reschedule(ctx)
                 }
             }
 
-            item { Section("予定") }
+            item { Section(R.string.section_calendar) }
             item {
-                SwitchRow("予定の直前に読み上げる", calendar) {
+                SwitchRow(stringResource(R.string.calendar_announce), calendar) {
                     calendar = it; prefs.calendarEnabled = it; Scheduler.reschedule(ctx)
                 }
             }
             item {
-                NumberField("何分前に読むか", calendarLead) {
+                NumberField(stringResource(R.string.calendar_lead), calendarLead) {
                     calendarLead = it
                     it.toIntOrNull()?.let { n -> prefs.calendarLeadMinutes = n }
                 }
             }
 
-            item { Section("ニュース") }
+            item { Section(R.string.section_news) }
             item {
-                SwitchRow("定期的にニュースを読む", news) {
+                SwitchRow(stringResource(R.string.scheduled_news), news) {
                     news = it; prefs.newsEnabled = it; Scheduler.reschedule(ctx)
                 }
             }
             item {
-                SwitchRow("音楽再生中のみ", newsOnlyMusic) {
+                SwitchRow(stringResource(R.string.news_only_music), newsOnlyMusic) {
                     newsOnlyMusic = it; prefs.newsOnlyWhenMusic = it
                 }
             }
@@ -337,19 +394,19 @@ fun Screen() {
                             Scheduler.reschedule(ctx)
                         }
                     },
-                    label = { Text("読む時刻（時、カンマ区切り）") },
+                    label = { Text(stringResource(R.string.news_hours)) },
                     placeholder = { Text(Prefs.DEFAULT_NEWS_HOURS) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                 )
             }
             item {
-                NumberField("件数", newsCount) {
+                NumberField(stringResource(R.string.count), newsCount) {
                     newsCount = it
                     it.toIntOrNull()?.let { n -> prefs.newsCount = n }
                 }
             }
-            item { Text("ニュース前のチャイム", style = MaterialTheme.typography.labelLarge) }
+            item { Text(stringResource(R.string.news_chime), style = MaterialTheme.typography.labelLarge) }
             items(Chime.entries, key = { it.key }) { c ->
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
                     RadioButton(selected = newsChime == c, onClick = {
@@ -357,7 +414,7 @@ fun Screen() {
                         else { newsChime = c; prefs.newsChime = c.key }
                     })
                     Column(modifier = Modifier.weight(1f)) {
-                        Text(c.label)
+                        Text(stringResource(c.labelRes))
                         if (c == Chime.CUSTOM && newsChimeUri != null) {
                             Text(Uri.parse(newsChimeUri).lastPathSegment ?: newsChimeUri!!, style = MaterialTheme.typography.bodySmall)
                         }
@@ -366,7 +423,7 @@ fun Screen() {
             }
             item {
                 Column {
-                    Text("チャイムの音量 ${(newsChimeVolume * 100).toInt()}%", style = MaterialTheme.typography.labelLarge)
+                    Text(stringResource(R.string.chime_volume, (newsChimeVolume * 100).toInt()), style = MaterialTheme.typography.labelLarge)
                     Slider(
                         value = newsChimeVolume,
                         onValueChange = { newsChimeVolume = it },
@@ -377,22 +434,26 @@ fun Screen() {
                 }
             }
             item {
-                OutlinedButton(onClick = { VoiceService.start(ctx, VoiceService.ACTION_CHIME_PREVIEW) }) { Text("チャイムを試聴") }
+                OutlinedButton(onClick = { VoiceService.start(ctx, VoiceService.ACTION_CHIME_PREVIEW) }) { Text(stringResource(R.string.button_preview_chime)) }
             }
             item {
                 OutlinedTextField(
                     value = newsUrl,
                     onValueChange = { newsUrl = it; prefs.newsUrl = it.trim() },
-                    label = { Text("ニュースの URL（RSS か要約テキスト。1 行 1 つ、上から順に試す）") },
+                    label = { Text(stringResource(R.string.news_url)) },
                     minLines = 2,
                     modifier = Modifier.fillMaxWidth(),
                 )
             }
+            }
+
+            if (page == SettingsPage.SYSTEM) {
+            item { Section(R.string.section_fallback) }
             item {
                 OutlinedTextField(
                     value = newsFallbackUrl,
                     onValueChange = { newsFallbackUrl = it; prefs.newsFallbackUrl = it.trim() },
-                    label = { Text("非常用クラウド要約 API（任意）") },
+                    label = { Text(stringResource(R.string.fallback_api)) },
                     placeholder = { Text("https://voicenews-fallback.<account>.workers.dev/v1/news") },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
@@ -402,24 +463,27 @@ fun Screen() {
                 OutlinedTextField(
                     value = newsFallbackToken,
                     onValueChange = { newsFallbackToken = it; prefs.newsFallbackToken = it.trim() },
-                    label = { Text("非常用 API の端末トークン") },
-                    supportingText = { Text("Gemini API キーではない。PC 側の要約が失敗したときだけ送る") },
+                    label = { Text(stringResource(R.string.fallback_token)) },
+                    supportingText = { Text(stringResource(R.string.fallback_token_help)) },
                     visualTransformation = PasswordVisualTransformation(),
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                 )
             }
 
-            item { Section("通知の読み上げ") }
+            }
+
+            if (page == SettingsPage.NOTIFICATIONS) {
+            item { Section(R.string.section_notifications) }
             item {
-                Text("URL は「リンク」、メールアドレスは「メールアドレス」に置き換える。長い ID は読まない",
+                Text(stringResource(R.string.notification_help),
                     style = MaterialTheme.typography.bodySmall)
             }
             item {
                 OutlinedTextField(
                     value = template,
                     onValueChange = { template = it; prefs.notificationTemplate = it },
-                    label = { Text("言い回し（送信者が分かるとき）") },
+                    label = { Text(stringResource(R.string.template_sender)) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                 )
@@ -428,28 +492,28 @@ fun Screen() {
                 OutlinedTextField(
                     value = templatePlain,
                     onValueChange = { templatePlain = it; prefs.notificationTemplatePlain = it },
-                    label = { Text("言い回し（送信者が分からないとき）") },
+                    label = { Text(stringResource(R.string.template_plain)) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                 )
             }
             item {
-                Text("{app} アプリ名、{sender} 送信者（さん付き）、{name} 送信者そのまま、{body} 本文",
+                Text(stringResource(R.string.template_help),
                     style = MaterialTheme.typography.bodySmall)
             }
             item {
                 OutlinedButton(onClick = {
-                    val sample = Speech.compose(prefs.notificationTemplate, "ライン", "ゆら", "うんちんぐ")
+                    val sample = Speech.compose(ctx, prefs.notificationTemplate, ctx.getString(R.string.sample_app), ctx.getString(R.string.sample_sender), ctx.getString(R.string.sample_body))
                     VoiceService.start(ctx, VoiceService.ACTION_SPEAK, sample)
-                }) { Text("言い回しを試す") }
+                }) { Text(stringResource(R.string.button_preview_template)) }
             }
             item {
-                NumberField("最大文字数（0 で無制限）", notificationMax) {
+                NumberField(stringResource(R.string.notification_max_chars), notificationMax) {
                     notificationMax = it
                     it.toIntOrNull()?.let { n -> prefs.notificationMaxChars = n }
                 }
             }
-            item { Section("読み上げるアプリ") }
+            item { Section(R.string.section_apps) }
             items(apps, key = { it.pkg }) { app ->
                 val checked = app.pkg in packages
                 Row(
@@ -467,15 +531,66 @@ fun Screen() {
                 }
             }
             item { Spacer(Modifier.padding(16.dp)) }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun SettingsHome(onOpen: (SettingsPage) -> Unit) {
+    Scaffold(topBar = { TopAppBar(title = { Text(stringResource(R.string.app_name)) }) }) { pad ->
+        LazyColumn(
+            modifier = Modifier.fillMaxSize().padding(pad).padding(horizontal = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            item {
+                Column(
+                    modifier = Modifier.fillMaxWidth().padding(top = 24.dp, bottom = 12.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    Box(
+                        modifier = Modifier.size(88.dp).clip(RoundedCornerShape(24.dp)),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Image(
+                            painter = painterResource(R.drawable.ic_launcher_background),
+                            contentDescription = null,
+                            modifier = Modifier.fillMaxSize(),
+                        )
+                        Image(
+                            painter = painterResource(R.drawable.ic_launcher_foreground),
+                            contentDescription = stringResource(R.string.app_name),
+                            modifier = Modifier.fillMaxSize(),
+                        )
+                    }
+                    Text(
+                        stringResource(R.string.home_tagline),
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.padding(top = 12.dp),
+                    )
+                }
+            }
+            items(SettingsPage.entries) { page ->
+                OutlinedButton(
+                    onClick = { onOpen(page) },
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        Text(stringResource(page.title), style = MaterialTheme.typography.titleMedium)
+                        Text(stringResource(page.summary), style = MaterialTheme.typography.bodySmall)
+                    }
+                }
+            }
         }
     }
 }
 
 @Composable
-private fun Section(title: String) {
+private fun Section(@StringRes title: Int) {
     Column {
         HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-        Text(title, style = MaterialTheme.typography.titleMedium)
+        Text(stringResource(title), style = MaterialTheme.typography.titleMedium)
     }
 }
 
@@ -491,7 +606,7 @@ private fun SwitchRow(label: String, checked: Boolean, onChange: (Boolean) -> Un
 private fun StatusRow(label: String, ok: Boolean, onFix: () -> Unit) {
     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
         Text(label, modifier = Modifier.weight(1f))
-        if (ok) Text("OK") else Button(onClick = onFix) { Text("設定") }
+        if (ok) Text(stringResource(R.string.ok)) else Button(onClick = onFix) { Text(stringResource(R.string.button_settings)) }
     }
 }
 

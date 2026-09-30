@@ -9,7 +9,7 @@ class App : Application() {
         super.onCreate()
         val nm = getSystemService(NotificationManager::class.java)
         nm.createNotificationChannel(
-            NotificationChannel(CHANNEL_ID, "読み上げサービス", NotificationManager.IMPORTANCE_MIN).apply {
+            NotificationChannel(CHANNEL_ID, getString(R.string.channel_name), NotificationManager.IMPORTANCE_MIN).apply {
                 setShowBadge(false)
             }
         )

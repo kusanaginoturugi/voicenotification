@@ -2,10 +2,12 @@ package biz.showway.voicenotification
 
 import android.content.Context
 import android.media.AudioAttributes
+import android.media.AudioDeviceInfo
 import android.media.AudioFocusRequest
 import android.media.AudioManager
 import android.media.MediaPlayer
 import android.net.Uri
+import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.speech.tts.TextToSpeech
@@ -65,7 +67,7 @@ object Speaker {
                     return@post
                 }
                 val t = tts ?: return@post
-                val r = t.setLanguage(Locale.JAPAN)
+                val r = t.setLanguage(app.resources.configuration.locales[0] ?: Locale.getDefault())
                 if (r == TextToSpeech.LANG_MISSING_DATA || r == TextToSpeech.LANG_NOT_SUPPORTED) {
                     Log.w(TAG, "Japanese voice not available: $r")
                 }
@@ -93,13 +95,41 @@ object Speaker {
         return ok
     }
 
+    /**
+     * 有線・Bluetooth・USB などの外部出力がなければ本体スピーカーとみなす。
+     * Android の TTS は出力先を直接取得できないため、TTS と WAV 再生で同じ判定を使う。
+     */
+    private fun playbackVolume(): Float {
+        val externalTypes = setOf(
+            AudioDeviceInfo.TYPE_WIRED_HEADSET,
+            AudioDeviceInfo.TYPE_WIRED_HEADPHONES,
+            AudioDeviceInfo.TYPE_BLUETOOTH_SCO,
+            AudioDeviceInfo.TYPE_BLUETOOTH_A2DP,
+            AudioDeviceInfo.TYPE_HDMI,
+            AudioDeviceInfo.TYPE_HDMI_ARC,
+            AudioDeviceInfo.TYPE_USB_DEVICE,
+            AudioDeviceInfo.TYPE_USB_ACCESSORY,
+            AudioDeviceInfo.TYPE_USB_HEADSET,
+            AudioDeviceInfo.TYPE_HEARING_AID,
+            AudioDeviceInfo.TYPE_BLE_HEADSET,
+            AudioDeviceInfo.TYPE_BLE_SPEAKER,
+        )
+        val hasExternalOutput = audio?.getDevices(AudioManager.GET_DEVICES_OUTPUTS)
+            ?.any { it.type in externalTypes } == true
+        return if (hasExternalOutput) 1f else Prefs(app).builtInSpeakerVolume
+    }
+
+    private fun ttsParams(): Bundle = Bundle().apply {
+        putFloat(TextToSpeech.Engine.KEY_PARAM_VOLUME, playbackVolume())
+    }
+
     fun speak(
         context: Context,
         raw: String,
         pause: Boolean = false,
         pauseForLongSpeech: Boolean = false,
     ) {
-        val text = Speech.sanitize(raw)
+        val text = Speech.sanitize(context, raw)
         if (text.isBlank()) return
         init(context)
         val prefs = Prefs(context)
@@ -152,7 +182,7 @@ object Speaker {
         if (focusRequest == null || (job.pause && !focusPausesMusic)) requestFocus(job.pause)
         when (job) {
             is Job.Text -> {
-                val r = tts?.speak(job.text, TextToSpeech.QUEUE_ADD, null, "u${counter++}")
+                val r = tts?.speak(job.text, TextToSpeech.QUEUE_ADD, ttsParams(), "u${counter++}")
                 if (r != TextToSpeech.SUCCESS) {
                     Log.w(TAG, "speak failed: $r")
                     finished()
@@ -164,7 +194,7 @@ object Speaker {
                 if (f != null) playFile(f, keep = RemoteTts.isCached(f))
                 else {
                     Log.w(TAG, "remote TTS unavailable, falling back to local")
-                    val r = tts?.speak(job.text, TextToSpeech.QUEUE_ADD, null, "u${counter++}")
+                    val r = tts?.speak(job.text, TextToSpeech.QUEUE_ADD, ttsParams(), "u${counter++}")
                     if (r != TextToSpeech.SUCCESS) finished()
                 }
             }
@@ -178,6 +208,7 @@ object Speaker {
             player = MediaPlayer().apply {
                 setAudioAttributes(attrs)
                 setDataSource(file.path)
+                setVolume(playbackVolume(), playbackVolume())
                 setOnPreparedListener { it.start() }
                 setOnCompletionListener { cleanup(); finished() }
                 setOnErrorListener { _, what, extra ->
@@ -198,7 +229,8 @@ object Speaker {
             player = MediaPlayer().apply {
                 setAudioAttributes(attrs)
                 setDataSource(app, uri)
-                setVolume(volume, volume)
+                val level = volume * playbackVolume()
+                setVolume(level, level)
                 setOnPreparedListener { it.start() }
                 setOnCompletionListener { finished() }
                 setOnErrorListener { _, what, extra ->

@@ -1,5 +1,7 @@
 package biz.showway.voicenotification
 
+import android.content.Context
+
 /** 読み上げる前に、声に出すと辛いものを取り除く */
 object Speech {
     private val URL = Regex("""(?:https?://|www\.)\S+""")
@@ -14,10 +16,10 @@ object Speech {
      */
     private val RUBY = Regex("""\[\[[^\[\]|]{1,64}\|([ァ-ヺー・]{1,64})]]""")
 
-    fun sanitize(text: String): String = text
+    fun sanitize(context: Context, text: String): String = text
         .replace(RUBY) { it.groupValues[1] }
-        .replace(URL, "リンク")
-        .replace(MAIL, "メールアドレス")
+        .replace(URL, context.getString(R.string.speech_link))
+        .replace(MAIL, context.getString(R.string.speech_email))
         .replace(TOKEN, "")
         .replace(BLANK_LINES, "\n")
         .replace(SPACE, " ")
@@ -38,18 +40,20 @@ object Speech {
      * LINE は画像やスタンプを送ると本文の代わりに定型文を入れてくるので、
      * 送信者名の重複を取って言い回しを整える。
      */
-    fun notice(body: String): String {
+    fun notice(context: Context, body: String): String {
         val t = body.trim()
         if (USELESS.any { it.matches(t) }) return ""
-        SENT.find(t)?.let { return "${it.groupValues[1]}を送ってきました" }
+        SENT.find(t)?.let { return context.getString(R.string.speech_sent, it.groupValues[1]) }
         return t
     }
 
     private val HONORIFICS = listOf("さん", "くん", "ちゃん", "様", "さま", "先生", "氏", "君")
 
     /** 二重敬称を避けて「さん」を付ける */
-    fun withHonorific(name: String): String =
-        if (name.isBlank() || HONORIFICS.any { name.endsWith(it) }) name else name + "さん"
+    fun withHonorific(context: Context, name: String): String {
+        if (context.resources.configuration.locales[0]?.language != "ja") return name
+        return if (name.isBlank() || HONORIFICS.any { name.endsWith(it) }) name else name + "さん"
+    }
 
     /** アプリ名の読み。英字のままだと読みが崩れるものを直す */
     private val READINGS = mapOf(
@@ -66,26 +70,27 @@ object Speech {
         "com.google.android.calendar" to "カレンダー",
     )
 
-    fun appReading(pkg: String, label: String): String = READINGS[pkg] ?: label
+    fun appReading(context: Context, pkg: String, label: String): String =
+        if (context.resources.configuration.locales[0]?.language == "ja") READINGS[pkg] ?: label else label
 
     /**
      * 通知の読み上げ文を組み立てる。テンプレートの記法は
      * `{app}` アプリ名、`{sender}` 送信者（さん付き）、`{name}` 送信者そのまま、`{body}` 本文
      */
-    fun compose(template: String, app: String, sender: String, body: String): String =
+    fun compose(context: Context, template: String, app: String, sender: String, body: String): String =
         template
             .replace("{app}", app)
-            .replace("{sender}", withHonorific(sender))
+            .replace("{sender}", withHonorific(context, sender))
             .replace("{name}", sender)
             .replace("{body}", body)
-            .let { sanitize(it) }
+            .let { sanitize(context, it) }
 
     /** max 文字を超えたら、直前の句読点で切って「以下略」を付ける */
-    fun truncate(text: String, max: Int): String {
+    fun truncate(context: Context, text: String, max: Int): String {
         if (max <= 0 || text.length <= max) return text
         val head = text.take(max)
         val cut = head.indexOfLast { it in "。！？、\n" }
         val body = if (cut >= max / 2) head.take(cut + 1) else head
-        return body.trimEnd('、', '\n') + "、以下略。"
+        return body.trimEnd('、', '\n') + context.getString(R.string.speech_truncated)
     }
 }

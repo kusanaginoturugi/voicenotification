@@ -4,8 +4,9 @@ import android.content.Context
 import android.content.SharedPreferences
 
 class Prefs(context: Context) {
+    private val context = context.applicationContext
     private val sp: SharedPreferences =
-        context.getSharedPreferences("prefs", Context.MODE_PRIVATE)
+        this.context.getSharedPreferences("prefs", Context.MODE_PRIVATE)
 
     init {
         val raw = sp.getString("news_fallback_url", "").orEmpty()
@@ -66,12 +67,14 @@ class Prefs(context: Context) {
 
     /** 送信者が分かる通知の言い回し。{app} {sender} {name} {body} を使える */
     var notificationTemplate: String
-        get() = sp.getString("notification_template", DEFAULT_TEMPLATE) ?: DEFAULT_TEMPLATE
+        get() = sp.getString("notification_template", context.getString(R.string.default_template))
+            ?: context.getString(R.string.default_template)
         set(v) = sp.edit().putString("notification_template", v).apply()
 
     /** 送信者が分からない通知の言い回し */
     var notificationTemplatePlain: String
-        get() = sp.getString("notification_template_plain", DEFAULT_TEMPLATE_PLAIN) ?: DEFAULT_TEMPLATE_PLAIN
+        get() = sp.getString("notification_template_plain", context.getString(R.string.default_template_plain))
+            ?: context.getString(R.string.default_template_plain)
         set(v) = sp.edit().putString("notification_template_plain", v).apply()
 
     /** 通知の読み上げをこの文字数で打ち切る。0 で無制限 */
@@ -83,6 +86,11 @@ class Prefs(context: Context) {
     var muteInSilentMode: Boolean
         get() = sp.getBoolean("mute_in_silent", true)
         set(v) = sp.edit().putBoolean("mute_in_silent", v).apply()
+
+    /** 本体スピーカー出力時だけ読み上げへ掛ける音量。外部オーディオでは 1.0 */
+    var builtInSpeakerVolume: Float
+        get() = sp.getFloat("built_in_speaker_volume", 0.3f)
+        set(v) = sp.edit().putFloat("built_in_speaker_volume", v.coerceIn(0.05f, 1f)).apply()
 
     var pauseMusic: Boolean
         get() = sp.getBoolean("pause_music", false)
@@ -136,8 +144,6 @@ class Prefs(context: Context) {
         set(v) = sp.edit().putStringSet("announced_events", v.toSet()).apply()
 
     companion object {
-        const val DEFAULT_TEMPLATE = "{sender}から{app}です。{body}"
-        const val DEFAULT_TEMPLATE_PLAIN = "{app}です。{body}"
         const val DEFAULT_NEWS_HOURS = "9,12,15,18"
         const val DEFAULT_NEWS_URL = "https://www.nhk.or.jp/rss/news/cat0.xml"
     }

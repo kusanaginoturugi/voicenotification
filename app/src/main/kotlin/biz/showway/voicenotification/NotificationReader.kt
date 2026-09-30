@@ -38,13 +38,14 @@ class NotificationReader : NotificationListenerService() {
             ).toString()
         }.getOrDefault(sbn.packageName)
 
-        val trimmed = Speech.truncate(Speech.notice(Speech.sanitize(body)), prefs.notificationMaxChars)
+        val trimmed = Speech.truncate(this, Speech.notice(this, Speech.sanitize(this, body)), prefs.notificationMaxChars)
         if (trimmed.isBlank()) return
         val template =
             if (sender.isNotBlank()) prefs.notificationTemplate else prefs.notificationTemplatePlain
         val speech = Speech.compose(
+            this,
             template,
-            app = Speech.appReading(sbn.packageName, appName),
+            app = Speech.appReading(this, sbn.packageName, appName),
             sender = sender,
             body = trimmed,
         )
