@@ -15,9 +15,15 @@ object Speech {
      * 例: [[石破茂|イシバシゲル]] → イシバシゲル
      */
     private val RUBY = Regex("""\[\[[^\[\]|]{1,64}\|([ァ-ヺー・]{1,64})]]""")
+    /**
+     * LLM が表記を外に出して 小泉[[コイズミ]] と書くことがある。
+     * 表記の始まりは決められないので、読みの方を捨てて二度読みを防ぐ
+     */
+    private val BARE_RUBY = Regex("""\[\[[ァ-ヺー・]{1,64}]]""")
 
     fun sanitize(context: Context, text: String): String = text
         .replace(RUBY) { it.groupValues[1] }
+        .replace(BARE_RUBY, "")
         .replace(URL, context.getString(R.string.speech_link))
         .replace(MAIL, context.getString(R.string.speech_email))
         .replace(TOKEN, "")
