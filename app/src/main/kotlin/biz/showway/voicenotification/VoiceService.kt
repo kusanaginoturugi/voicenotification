@@ -7,6 +7,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.media.AudioManager
+import android.net.Uri
 import android.os.IBinder
 import android.util.Log
 import java.util.Calendar
@@ -67,7 +68,9 @@ class VoiceService : Service() {
     }
 
     private fun chime(prefs: Prefs) {
-        val h = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
+        // 正時の数秒前に発火するので、少し先の時刻で何時かを決める
+        val h = Calendar.getInstance().apply { add(Calendar.MINUTE, 1) }.get(Calendar.HOUR_OF_DAY)
+        Speaker.chime(this, Uri.parse("android.resource://$packageName/${R.raw.chime_jiho}"), prefs.newsChimeVolume, prefs.pauseMusic)
         // 時刻の文は毎回同じなので、予定と分けて読む（同じ文なら合成結果が使い回される）
         val hour = if (h % 12 == 0) 12 else h % 12
         val timeText = getString(if (h < 12) R.string.time_am else R.string.time_pm, hour)

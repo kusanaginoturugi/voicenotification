@@ -99,6 +99,19 @@ def render(mml, instrument="musicbox", tail=1.6, reverb=0.5):
     out[-fade:] *= np.linspace(1, 0, fade)
     return out
 
+def render_jiho():
+    """NHK の時報。440Hz 0.1 秒を 1 秒おきに 3 回、3 秒目に 880Hz。純音なので MML を通さない"""
+    def tone(freq, hold, decay):
+        t = np.arange(int(SR * (hold + decay))) / SR
+        env = np.where(t < hold, 1.0, np.exp(-(t - hold) / (decay / 4)))
+        env *= np.minimum(t / 0.003, 1.0) * np.minimum((t[-1] - t) / 0.003, 1.0)
+        return np.sin(2 * np.pi * freq * t) * env
+    out = np.zeros(int(SR * 5.0))
+    for s, y in ((0, tone(440, 0.1, 0.02)), (1, tone(440, 0.1, 0.02)), (2, tone(440, 0.1, 0.02)), (3, tone(880, 1.2, 0.5))):
+        i = int(SR * s)
+        out[i:i + len(y)] += y
+    return out * 0.8
+
 def save(path, y):
     with wave.open(path, "wb") as w:
         w.setnchannels(1); w.setsampwidth(2); w.setframerate(SR)
@@ -143,3 +156,4 @@ if __name__ == "__main__":
         os.makedirs(a.out, exist_ok=True)
         for name, spec in CHIMES.items():
             save(os.path.join(a.out, name + ".wav"), render(**spec)); print(name)
+        save(os.path.join(a.out, "chime_jiho.wav"), render_jiho()); print("chime_jiho")

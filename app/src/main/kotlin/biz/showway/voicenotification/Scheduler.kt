@@ -13,6 +13,8 @@ object Scheduler {
     const val ACTION_NEWS = "biz.showway.voicenotification.NEWS"
 
     private const val CALENDAR_SCAN_MINUTES = 5L
+    /** 時報音の 880Hz が正時に鳴るよう、この分だけ前に発火させる。実機の遅れを見て調整する */
+    const val JIHO_LEAD_MS = 3_000L
 
     fun reschedule(context: Context) {
         val prefs = Prefs(context)
@@ -75,12 +77,14 @@ object Scheduler {
         return at.timeInMillis
     }
 
+    /** 次の正時の JIHO_LEAD_MS 前。発火直後に呼ばれても同じ正時を再登録しないよう、先読み分を足して数える */
     private fun nextHour(): Long = Calendar.getInstance().apply {
+        timeInMillis += JIHO_LEAD_MS
         set(Calendar.MINUTE, 0)
         set(Calendar.SECOND, 0)
         set(Calendar.MILLISECOND, 0)
         add(Calendar.HOUR_OF_DAY, 1)
-    }.timeInMillis
+    }.timeInMillis - JIHO_LEAD_MS
 }
 
 class AlarmReceiver : BroadcastReceiver() {
