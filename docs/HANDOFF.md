@@ -125,6 +125,12 @@ Android で以下を日本語 TTS で読み上げる常駐アプリ。
 - Cloudflare Worker `voicenews-fallback` をデプロイ。`gemma-4-26b-a4b-it` が要約本文と読み辞書をJSONで返し、Workerが `[[表記|カタカナ]]` に組み立ててAndroidへ返す。Gemini APIキーはWorker Secret、Androidは端末トークンだけを送る
 - Workerの `/v1/news` をcurlで確認し、PC側ニュースURLを空にしたPixel 8aの「ニュース」ボタンからWorker要約が再生されることを確認。非常用URL欄に旧複数行設定が残っても先頭URLへ正規化する
 
+### 2026-09-30
+
+- ニュースで「小泉コイズミ」と二度読みする件を調査。gallsk の `docker logs voicevox` に残る audio_query の text から、LocalLLM が `小泉[[コイズミ]]` と `|` なしで返し、`RUBY` にマッチせず素通りしていたと判明（9/28 12時、9/29 15時台）。`Speech.sanitize` で `[[カタカナ]]` だけの注釈は捨てるようにした。表記の範囲は機械的に決められないので読みは諦める。実機で `小泉防衛大臣` になることを確認
+- 表示名を Mimiyori に変更（同名の Play アプリがあるため）。`applicationId` は据え置き
+- 時報に NHK 風の時報音（440Hz 0.1 秒 ×3、3 秒目に 880Hz）を追加。YouTube の録音を FFT で測って `gen_chime.py` の `render_jiho()` で純音合成。アラームは正時の `JIHO_LEAD_MS`（3 秒）前に発火し、時刻は 1 分先で決める。実機で時報音 → 時刻読み上げの順を確認。正時とのズレは未計測
+
 ## 引き継ぎ
 
 ### ビルド環境
@@ -143,7 +149,7 @@ Android で以下を日本語 TTS で読み上げる常駐アプリ。
 - 平文 HTTP を使うため `usesCleartextTraffic="true"`。Tailscale 内でしか使わない前提
 - ニュース URL は改行区切りで複数。レスポンスが `<` で始まれば RSS / Atom としてパース、それ以外はプレーンテキストとしてそのまま読む
 - プレーンテキストは `Last-Modified` が 2 時間より古ければ使わない（要約側の停止検知）
-- adb からの操作: サービスは非公開なので `am start-foreground-service` は通らない。画面を点けて `uiautomator dump` でボタン位置を取り `input tap` する
+- adb からの操作: サービスは非公開だが `adb shell run-as biz.showway.voicenotification am start-foreground-service --user 0 -n biz.showway.voicenotification/.VoiceService -a <ACTION>` なら通る（`--user 0` がないと権限エラー）
 
 ### 未確認・既知の問題
 
@@ -154,3 +160,6 @@ Android で以下を日本語 TTS で読み上げる常駐アプリ。
 - llama.cpp.service が落ちていると要約が更新されず、古い要約は 2 時間でアプリが見捨てて RSS 読み上げに戻る
 - 既読は要約を書いた時点で付く。その回のニュースをアプリが読まなかった（音楽再生中のみ設定で音楽が止まっていた等）場合も、次回は除外される
 - 「音楽再生中のみ」が ON のままだと、時刻指定でも音楽を流していない回は読まない
+- 時報音の 880Hz が正時からどれだけ遅れるか未計測。ずれるなら `Scheduler.JIHO_LEAD_MS` を調整する
+- インストール直後の最初の `CHIME` 起動で、時報音も時刻も鳴らなかったことが 1 回あった。原因未特定
+- Worker の `applyReadings` は長い表記から順に `split/join` するので、`小泉進次郎` と `小泉` が両方あると注釈が入れ子になって崩れる（未修正）
