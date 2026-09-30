@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">VoiceNotification</string>
+    <string name="app_name">Mimiyori</string>
     <string name="channel_name">Voice reading service</string>
     <string name="service_waiting">Waiting to read aloud</string>
     <string name="section_permissions">Permissions</string>

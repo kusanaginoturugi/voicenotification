@@ -1,4 +1,4 @@
-# VoiceNotification
+# Mimiyori
 
 Android の通知・時報・予定・ニュースを日本語で読み上げる常駐アプリ。
 
@@ -32,7 +32,7 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 
 アプリを開いて「権限」の項目を上から潰す。
 
-- 通知へのアクセス: 設定画面に飛ぶので VoiceNotification を ON
+- 通知へのアクセス: 設定画面に飛ぶので Mimiyori を ON
 - カレンダー読み取り: ダイアログで許可
 - 正確なアラーム: 設定画面で許可（時報を 0 分ぴったりに鳴らすため）
 - 通知の表示: Android 13 以降のみ。常駐通知を出すため
