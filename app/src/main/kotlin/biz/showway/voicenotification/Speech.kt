@@ -79,6 +79,20 @@ object Speech {
     fun appReading(context: Context, pkg: String, label: String): String =
         if (context.resources.configuration.locales[0]?.language == "ja") READINGS[pkg] ?: label else label
 
+    /** A messaging-style notification can report its own app name as the sender. */
+    fun senderIsApp(sender: String, pkg: String, appLabel: String, spokenApp: String): Boolean {
+        fun normalized(name: String): String = name.trim()
+            .removeSuffix("さん").removeSuffix("くん").removeSuffix("ちゃん")
+            .removeSuffix("様").removeSuffix("さま").removeSuffix("先生").removeSuffix("氏").removeSuffix("君")
+            .lowercase()
+            .filter(Char::isLetterOrDigit)
+
+        val senderKey = normalized(sender)
+        if (senderKey.isEmpty()) return false
+        return listOf(appLabel, spokenApp, pkg.substringAfterLast('.'))
+            .any { normalized(it) == senderKey }
+    }
+
     /**
      * 通知の読み上げ文を組み立てる。テンプレートの記法は
      * `{app}` アプリ名、`{sender}` 送信者（さん付き）、`{name}` 送信者そのまま、`{body}` 本文

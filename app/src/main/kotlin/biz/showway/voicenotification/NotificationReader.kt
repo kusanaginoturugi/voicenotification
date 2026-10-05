@@ -40,13 +40,16 @@ class NotificationReader : NotificationListenerService() {
 
         val trimmed = Speech.truncate(this, Speech.notice(this, Speech.sanitize(this, body)), prefs.notificationMaxChars)
         if (trimmed.isBlank()) return
+        val spokenApp = Speech.appReading(this, sbn.packageName, appName)
+        val hasDistinctSender = sender.isNotBlank() &&
+            !Speech.senderIsApp(sender, sbn.packageName, appName, spokenApp)
         val template =
-            if (sender.isNotBlank()) prefs.notificationTemplate else prefs.notificationTemplatePlain
+            if (hasDistinctSender) prefs.notificationTemplate else prefs.notificationTemplatePlain
         val speech = Speech.compose(
             this,
             template,
-            app = Speech.appReading(this, sbn.packageName, appName),
-            sender = sender,
+            app = spokenApp,
+            sender = if (hasDistinctSender) sender else "",
             body = trimmed,
         )
         Speaker.speak(this, speech, prefs.pauseMusic, prefs.pauseMusicForLongSpeech)

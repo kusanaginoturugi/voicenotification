@@ -47,8 +47,8 @@
     <string name="empty_url">URL is empty</string>
     <string name="button_connection_test">Test connection</string>
     <string name="mute_in_silent">Skip automatic speech in silent or vibrate mode (buttons still play)</string>
-    <string name="built_in_speaker_volume">Built-in speaker volume %1$d%%</string>
-    <string name="built_in_speaker_volume_help">This does not apply to Bluetooth, wired, or USB audio.</string>
+    <string name="built_in_speaker_volume">Built-in speaker speech limit %1$d%%</string>
+    <string name="built_in_speaker_volume_help">A ceiling relative to maximum phone volume. Lower volume is not reduced again. Headphone, Bluetooth and USB output use normal volume.</string>
     <string name="pause_music">Pause music for all speech</string>
     <string name="pause_music_long">Pause music for long speech (duck for short speech)</string>
     <string name="hourly_chime">Read the time and events within the next hour every hour</string>
@@ -68,7 +68,7 @@
     <string name="notification_help">URLs are read as “link” and email addresses as “email address”; long IDs are skipped.</string>
     <string name="template_sender">Template (sender known)</string>
     <string name="template_plain">Template (sender unknown)</string>
-    <string name="template_help">{app} app name, {sender} sender, {name} sender as-is, {body} message</string>
+    <string name="template_help">{app} app name, {sender} sender, {name} sender as-is, {body} message. The sender is omitted when it matches the app name.</string>
     <string name="button_preview_template">Preview template</string>
     <string name="notification_max_chars">Maximum characters (0 for unlimited)</string>
     <string name="ok">OK</string>

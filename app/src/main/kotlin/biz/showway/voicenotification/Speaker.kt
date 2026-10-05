@@ -1,13 +1,20 @@
 package biz.showway.voicenotification
 
 import android.content.Context
+import android.content.BroadcastReceiver
+import android.content.Intent
+import android.content.IntentFilter
 import android.media.AudioAttributes
+import android.media.AudioDeviceCallback
 import android.media.AudioDeviceInfo
+import android.media.AudioRouting
 import android.media.AudioFocusRequest
 import android.media.AudioManager
 import android.media.MediaPlayer
+import android.media.MediaRouter
 import android.net.Uri
 import android.os.Bundle
+import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.speech.tts.TextToSpeech
@@ -46,6 +53,40 @@ object Speaker {
     private var current: Job? = null
     private var player: MediaPlayer? = null
     private var counter = 0
+    private data class LocalSynthesis(val id: String, val job: Job, val file: File)
+    private var localSynthesis: LocalSynthesis? = null
+    private var playerCleanup: (() -> Unit)? = null
+    private var routingListener: AudioRouting.OnRoutingChangedListener? = null
+    private var playerBaseVolume = 1f
+    private var forceSpeakerCap = false
+    private var routedIds = emptySet<Int>()
+    private var lastRouteLog = ""
+    private var volumeDetails = ""
+    private val volumeMonitor = object : Runnable {
+        override fun run() {
+            val mp = player ?: return
+            updatePlaybackVolume(mp)
+            handler.postDelayed(this, 100)
+        }
+    }
+    private val volumeCallback = object : MediaRouter.SimpleCallback() {
+        override fun onRouteVolumeChanged(router: MediaRouter, info: MediaRouter.RouteInfo) {
+            player?.let { updatePlaybackVolume(it) }
+        }
+    }
+
+    private val noisyReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            if (intent?.action == AudioManager.ACTION_AUDIO_BECOMING_NOISY) {
+                capCurrentPlayback("becoming noisy")
+            }
+        }
+    }
+    private val deviceCallback = object : AudioDeviceCallback() {
+        override fun onAudioDevicesRemoved(removedDevices: Array<out AudioDeviceInfo>) {
+            if (removedDevices.any { it.id in routedIds }) capCurrentPlayback("output removed")
+        }
+    }
 
     private var audio: AudioManager? = null
     private var focusRequest: AudioFocusRequest? = null
@@ -60,6 +101,16 @@ object Speaker {
         if (tts != null) return
         app = context.applicationContext
         audio = app.getSystemService(AudioManager::class.java)
+        val filter = IntentFilter(AudioManager.ACTION_AUDIO_BECOMING_NOISY)
+        if (Build.VERSION.SDK_INT >= 33) {
+            app.registerReceiver(noisyReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
+        } else {
+            app.registerReceiver(noisyReceiver, filter)
+        }
+        audio?.registerAudioDeviceCallback(deviceCallback, handler)
+        app.getSystemService(MediaRouter::class.java).addCallback(
+            MediaRouter.ROUTE_TYPE_LIVE_AUDIO, volumeCallback, MediaRouter.CALLBACK_FLAG_UNFILTERED_EVENTS
+        )
         tts = TextToSpeech(app) { status ->
             handler.post {
                 if (status != TextToSpeech.SUCCESS) {
@@ -74,10 +125,11 @@ object Speaker {
                 t.setAudioAttributes(attrs)
                 t.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
                     override fun onStart(utteranceId: String?) {}
-                    override fun onDone(utteranceId: String?) = finished()
+                    override fun onDone(utteranceId: String?) = localSynthesisFinished(utteranceId, true)
                     @Deprecated("Deprecated in Java")
-                    override fun onError(utteranceId: String?) = finished()
-                    override fun onError(utteranceId: String?, errorCode: Int) = finished()
+                    override fun onError(utteranceId: String?) = localSynthesisFinished(utteranceId, false)
+                    override fun onError(utteranceId: String?, errorCode: Int) = localSynthesisFinished(utteranceId, false)
+                    override fun onStop(utteranceId: String?, interrupted: Boolean) = localSynthesisFinished(utteranceId, false)
                 })
                 ready = true
                 pump()
@@ -95,32 +147,35 @@ object Speaker {
         return ok
     }
 
-    /**
-     * 有線・Bluetooth・USB などの外部出力がなければ本体スピーカーとみなす。
-     * Android の TTS は出力先を直接取得できないため、TTS と WAV 再生で同じ判定を使う。
-     */
-    private fun playbackVolume(): Float {
-        val externalTypes = setOf(
-            AudioDeviceInfo.TYPE_WIRED_HEADSET,
-            AudioDeviceInfo.TYPE_WIRED_HEADPHONES,
-            AudioDeviceInfo.TYPE_BLUETOOTH_SCO,
-            AudioDeviceInfo.TYPE_BLUETOOTH_A2DP,
-            AudioDeviceInfo.TYPE_HDMI,
-            AudioDeviceInfo.TYPE_HDMI_ARC,
-            AudioDeviceInfo.TYPE_USB_DEVICE,
-            AudioDeviceInfo.TYPE_USB_ACCESSORY,
-            AudioDeviceInfo.TYPE_USB_HEADSET,
-            AudioDeviceInfo.TYPE_HEARING_AID,
-            AudioDeviceInfo.TYPE_BLE_HEADSET,
-            AudioDeviceInfo.TYPE_BLE_SPEAKER,
-        )
-        val hasExternalOutput = audio?.getDevices(AudioManager.GET_DEVICES_OUTPUTS)
-            ?.any { it.type in externalTypes } == true
-        return if (hasExternalOutput) 1f else Prefs(app).builtInSpeakerVolume
+    /** 端末 TTS もファイル化し、実際の出力先を確認できる MediaPlayer で再生する。 */
+    private fun synthesizeLocal(text: String, job: Job) {
+        try {
+            val pending = LocalSynthesis("local-${counter++}", job, File.createTempFile("local-tts-", ".wav", app.cacheDir))
+            localSynthesis = pending
+            val result = tts?.synthesizeToFile(text, Bundle(), pending.file, pending.id)
+            if (result != TextToSpeech.SUCCESS) localSynthesisFinished(pending.id, false)
+        } catch (e: Exception) {
+            Log.w(TAG, "local synthesis failed", e)
+            localSynthesis?.file?.delete()
+            localSynthesis = null
+            finished(job)
+        }
     }
 
-    private fun ttsParams(): Bundle = Bundle().apply {
-        putFloat(TextToSpeech.Engine.KEY_PARAM_VOLUME, playbackVolume())
+    private fun localSynthesisFinished(id: String?, success: Boolean) {
+        handler.post {
+            val pending = localSynthesis ?: return@post
+            if (pending.id != id || current !== pending.job) return@post
+            localSynthesis = null
+            if (success && pending.file.length() > 0) {
+                Log.i(TAG, "local synthesis ready")
+                playFile(pending.file, keep = false)
+            } else {
+                Log.w(TAG, "local synthesis failed or stopped")
+                pending.file.delete()
+                finished(pending.job)
+            }
+        }
     }
 
     fun speak(
@@ -161,6 +216,8 @@ object Speaker {
                 (job as? Job.Remote)?.file?.let { if (!RemoteTts.isCached(it)) it.delete() }
             }
             queue.clear()
+            localSynthesis?.file?.delete()
+            localSynthesis = null
             tts?.stop()
             releasePlayer()
             current = null
@@ -181,78 +238,152 @@ object Speaker {
         current = job
         if (focusRequest == null || (job.pause && !focusPausesMusic)) requestFocus(job.pause)
         when (job) {
-            is Job.Text -> {
-                val r = tts?.speak(job.text, TextToSpeech.QUEUE_ADD, ttsParams(), "u${counter++}")
-                if (r != TextToSpeech.SUCCESS) {
-                    Log.w(TAG, "speak failed: $r")
-                    finished()
-                }
-            }
+            is Job.Text -> synthesizeLocal(job.text, job)
             is Job.Chime -> playChime(job.uri, job.volume)
             is Job.Remote -> {
                 val f = job.file
                 if (f != null) playFile(f, keep = RemoteTts.isCached(f))
                 else {
                     Log.w(TAG, "remote TTS unavailable, falling back to local")
-                    val r = tts?.speak(job.text, TextToSpeech.QUEUE_ADD, ttsParams(), "u${counter++}")
-                    if (r != TextToSpeech.SUCCESS) finished()
+                    synthesizeLocal(job.text, job)
                 }
             }
         }
     }
 
-    private fun playFile(file: File, keep: Boolean) {
-        fun cleanup() { if (!keep) file.delete() }
+    private fun playFile(file: File, keep: Boolean) = play(
+        baseVolume = 1f,
+        cleanup = { if (!keep) file.delete() },
+        source = { setDataSource(file.path) },
+    )
+
+    private fun playChime(uri: Uri, volume: Float) = play(
+        baseVolume = volume,
+        source = { setDataSource(app, uri) },
+    )
+
+    private fun play(baseVolume: Float, cleanup: () -> Unit = {}, source: MediaPlayer.() -> Unit) {
         releasePlayer()
+        val job = current ?: run { cleanup(); return }
+        playerCleanup = cleanup
+        playerBaseVolume = baseVolume
+        forceSpeakerCap = false
+        routedIds = emptySet()
+        lastRouteLog = ""
         try {
-            player = MediaPlayer().apply {
-                setAudioAttributes(attrs)
-                setDataSource(file.path)
-                setVolume(playbackVolume(), playbackVolume())
-                setOnPreparedListener { it.start() }
-                setOnCompletionListener { cleanup(); finished() }
-                setOnErrorListener { _, what, extra ->
-                    Log.w(TAG, "playback failed: $what/$extra")
-                    cleanup(); finished(); true
-                }
-                prepareAsync()
+            val mp = MediaPlayer()
+            player = mp
+            mp.setAudioAttributes(attrs)
+            mp.source()
+            // 再生開始前はルートを取得できない。外部出力が確認できるまで上限を適用。
+            val initial = baseVolume * Prefs(app).builtInSpeakerVolume
+            mp.setVolume(initial, initial)
+            val listener = AudioRouting.OnRoutingChangedListener {
+                if (player === mp) updatePlaybackVolume(mp)
             }
+            routingListener = listener
+            mp.addOnRoutingChangedListener(listener, handler)
+            mp.setOnPreparedListener {
+                if (player === mp) {
+                    mp.start()
+                    updatePlaybackVolume(mp)
+                    handler.postDelayed(volumeMonitor, 100)
+                }
+            }
+            mp.setOnCompletionListener { finished(job) }
+            mp.setOnErrorListener { _, what, extra ->
+                Log.w(TAG, "playback failed: $what/$extra")
+                finished(job)
+                true
+            }
+            mp.prepareAsync()
         } catch (e: Exception) {
-            Log.w(TAG, "open failed: $file", e)
-            cleanup(); finished()
+            Log.w(TAG, "open failed", e)
+            finished(job)
         }
     }
 
-    private fun playChime(uri: Uri, volume: Float) {
-        releasePlayer()
-        try {
-            player = MediaPlayer().apply {
-                setAudioAttributes(attrs)
-                setDataSource(app, uri)
-                val level = volume * playbackVolume()
-                setVolume(level, level)
-                setOnPreparedListener { it.start() }
-                setOnCompletionListener { finished() }
-                setOnErrorListener { _, what, extra ->
-                    Log.w(TAG, "chime failed: $what/$extra")
-                    finished(); true
-                }
-                prepareAsync()
-            }
-        } catch (e: Exception) {
-            Log.w(TAG, "chime open failed: $uri", e)
-            finished()
+    /** 接続一覧ではなく、このプレーヤーが現在音を出しているデバイスを調べる。 */
+    private fun updatePlaybackVolume(mp: MediaPlayer) {
+        if (player !== mp) return
+        val routes = runCatching {
+            if (Build.VERSION.SDK_INT >= 36) mp.routedDevices
+            else listOfNotNull(mp.routedDevice)
+        }.getOrDefault(emptyList())
+        routedIds = routes.map { it.id }.toSet()
+        // 不明・本体・複数出力に本体を含む場合は上限を維持する。
+        val externalOnly = routes.isNotEmpty() && routes.all { it.type in externalOutputTypes }
+        val limit = Prefs(app).builtInSpeakerVolume
+        volumeDetails = ""
+        val multiplier = when {
+            externalOnly && !forceSpeakerCap -> 1f
+            routes.size == 1 && routes[0].type == AudioDeviceInfo.TYPE_BUILTIN_SPEAKER -> speakerGain(limit)
+            else -> limit
         }
+        val level = playerBaseVolume * multiplier
+        mp.setVolume(level, level)
+        val state = "routes=${routes.map { it.type }} multiplier=$multiplier gain=$level guarded=$forceSpeakerCap $volumeDetails"
+        if (state != lastRouteLog) {
+            Log.i(TAG, "playback $state")
+            lastRouteLog = state
+        }
+    }
+
+    private fun speakerGain(limit: Float): Float {
+        val am = audio ?: return limit
+        return runCatching {
+            val stream = attrs.volumeControlStream
+            val index = am.getStreamVolume(stream)
+            val max = am.getStreamMaxVolume(stream)
+            val currentDb = am.getStreamVolumeDb(stream, index, AudioDeviceInfo.TYPE_BUILTIN_SPEAKER)
+            val maximumDb = am.getStreamVolumeDb(stream, max, AudioDeviceInfo.TYPE_BUILTIN_SPEAKER)
+            volumeDetails = "stream=$stream index=$index/$max db=$currentDb maxDb=$maximumDb ceiling=$limit"
+            if (am.isStreamMute(stream)) 0f else SpeakerVolume.gain(limit, currentDb, maximumDb)
+        }.getOrDefault(limit)
+    }
+
+    // 不明なデバイスを外部と決めつけない。内蔵スピーカー・受話口は含めない。
+    private val externalOutputTypes = setOf(
+        AudioDeviceInfo.TYPE_WIRED_HEADSET, AudioDeviceInfo.TYPE_WIRED_HEADPHONES,
+        AudioDeviceInfo.TYPE_BLUETOOTH_SCO, AudioDeviceInfo.TYPE_BLUETOOTH_A2DP,
+        AudioDeviceInfo.TYPE_USB_DEVICE, AudioDeviceInfo.TYPE_USB_ACCESSORY,
+        AudioDeviceInfo.TYPE_USB_HEADSET, AudioDeviceInfo.TYPE_HEARING_AID,
+        AudioDeviceInfo.TYPE_BLE_HEADSET, AudioDeviceInfo.TYPE_BLE_SPEAKER,
+        AudioDeviceInfo.TYPE_HDMI,
+        AudioDeviceInfo.TYPE_HDMI_ARC, AudioDeviceInfo.TYPE_HDMI_EARC,
+        AudioDeviceInfo.TYPE_LINE_ANALOG, AudioDeviceInfo.TYPE_LINE_DIGITAL,
+        AudioDeviceInfo.TYPE_AUX_LINE, AudioDeviceInfo.TYPE_DOCK,
+        AudioDeviceInfo.TYPE_IP,
+    ) + if (Build.VERSION.SDK_INT >= 33) setOf(AudioDeviceInfo.TYPE_BLE_BROADCAST) else emptySet()
+
+    /** 取り外し通知を受けた発話は、ルート情報がまだ古くても最後まで上限を維持。 */
+    private fun capCurrentPlayback(reason: String) {
+        val mp = player ?: return
+        forceSpeakerCap = true
+        val level = playerBaseVolume * Prefs(app).builtInSpeakerVolume
+        mp.setVolume(level, level)
+        Log.i(TAG, "playback capped: $reason gain=$level")
     }
 
     private fun releasePlayer() {
-        player?.let { runCatching { it.stop() }; it.release() }
+        handler.removeCallbacks(volumeMonitor)
+        val mp = player
         player = null
+        if (mp != null) {
+            routingListener?.let { mp.removeOnRoutingChangedListener(it) }
+            runCatching { mp.stop() }
+            mp.release()
+        }
+        routingListener = null
+        routedIds = emptySet()
+        playerCleanup?.invoke()
+        playerCleanup = null
     }
 
-    private fun finished() {
+    private fun finished(job: Job? = current) {
         handler.post {
-            if (current is Job.Chime || current is Job.Remote) releasePlayer()
+            if (current !== job) return@post
+            releasePlayer()
             current = null
             pump()
         }

@@ -87,10 +87,10 @@ class Prefs(context: Context) {
         get() = sp.getBoolean("mute_in_silent", true)
         set(v) = sp.edit().putBoolean("mute_in_silent", v).apply()
 
-    /** 本体スピーカー出力時だけ読み上げへ掛ける音量。外部オーディオでは 1.0 */
+    /** 最大システム音量を基準にした本体スピーカーの振幅上限。外部出力には掛けない */
     var builtInSpeakerVolume: Float
-        get() = sp.getFloat("built_in_speaker_volume", 0.3f)
-        set(v) = sp.edit().putFloat("built_in_speaker_volume", v.coerceIn(0.05f, 1f)).apply()
+        get() = sp.getFloat("built_in_speaker_volume", 0.15f).coerceIn(0.05f, 0.15f)
+        set(v) = sp.edit().putFloat("built_in_speaker_volume", v.coerceIn(0.05f, 0.15f)).apply()
 
     var pauseMusic: Boolean
         get() = sp.getBoolean("pause_music", false)

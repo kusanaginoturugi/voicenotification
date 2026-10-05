@@ -335,8 +335,8 @@ fun Screen() {
                     value = builtInSpeakerVolume,
                     onValueChange = { builtInSpeakerVolume = it },
                     onValueChangeFinished = { prefs.builtInSpeakerVolume = builtInSpeakerVolume },
-                    valueRange = 0.05f..1f,
-                    steps = 18,
+                    valueRange = 0.05f..0.15f,
+                    steps = 1,
                 )
             }
             item {

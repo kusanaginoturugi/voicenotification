@@ -47,8 +47,8 @@
     <string name="empty_url">URL が空</string>
     <string name="button_connection_test">接続テスト</string>
     <string name="mute_in_silent">マナーモード中は自動の読み上げをしない（ボタンからは鳴る）</string>
-    <string name="built_in_speaker_volume">本体スピーカー時の読み上げ音量 %1$d%%</string>
-    <string name="built_in_speaker_volume_help">Bluetooth・有線・USB オーディオではこの設定を使わない</string>
+    <string name="built_in_speaker_volume">本体スピーカーの読み上げ上限 %1$d%%</string>
+    <string name="built_in_speaker_volume_help">端末の最大音量を基準にした上限。すでに小さい音量はさらに下げない。イヤホン・Bluetooth・USB出力には掛けない</string>
     <string name="pause_music">すべての読み上げ中は音楽を一時停止</string>
     <string name="pause_music_long">長い読み上げ中は音楽を一時停止（短いものは音量を下げる）</string>
     <string name="hourly_chime">毎時 0 分に時刻と 1 時間以内の予定を読む</string>
@@ -68,7 +68,7 @@
     <string name="notification_help">URL は「リンク」、メールアドレスは「メールアドレス」に置き換える。長い ID は読まない</string>
     <string name="template_sender">言い回し（送信者が分かるとき）</string>
     <string name="template_plain">言い回し（送信者が分からないとき）</string>
-    <string name="template_help">{app} アプリ名、{sender} 送信者（さん付き）、{name} 送信者そのまま、{body} 本文</string>
+    <string name="template_help">{app} アプリ名、{sender} 送信者（さん付き）、{name} 送信者そのまま、{body} 本文。同じアプリ名が送信者にも入ったときは送信者を省く</string>
     <string name="button_preview_template">言い回しを試す</string>
     <string name="notification_max_chars">最大文字数（0 で無制限）</string>
     <string name="ok">OK</string>
