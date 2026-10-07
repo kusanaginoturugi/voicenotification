@@ -12,6 +12,9 @@ import android.media.AudioFocusRequest
 import android.media.AudioManager
 import android.media.MediaPlayer
 import android.media.MediaRouter
+import android.media.session.MediaSession
+import android.media.session.PlaybackState
+import android.view.KeyEvent
 import android.net.Uri
 import android.os.Bundle
 import android.os.Build
@@ -91,6 +94,55 @@ object Speaker {
     private var audio: AudioManager? = null
     private var focusRequest: AudioFocusRequest? = null
     private var focusPausesMusic = false
+    private var mediaSession: MediaSession? = null
+
+    /** 音声の再生開始からキュー終了までだけメディアボタンを受ける。 */
+    private fun enableMediaButtons() {
+        if (mediaSession != null) return
+        mediaSession = MediaSession(app, "MimiyoriSpeech").apply {
+            // 終了後にイヤホン操作でMimiyoriが再起動されないようにする。
+            setMediaButtonReceiver(null)
+            setCallback(object : MediaSession.Callback() {
+                override fun onMediaButtonEvent(intent: Intent): Boolean {
+                    @Suppress("DEPRECATION")
+                    val event = intent.getParcelableExtra<KeyEvent>(Intent.EXTRA_KEY_EVENT)
+                        ?: return false
+                    if (event.keyCode !in setOf(
+                            KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE, KeyEvent.KEYCODE_HEADSETHOOK,
+                            KeyEvent.KEYCODE_MEDIA_PLAY, KeyEvent.KEYCODE_MEDIA_PAUSE,
+                            KeyEvent.KEYCODE_MEDIA_STOP,
+                            KeyEvent.KEYCODE_MEDIA_NEXT, KeyEvent.KEYCODE_MEDIA_PREVIOUS,
+                        )) return super.onMediaButtonEvent(intent)
+                    if (event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0) {
+                        Log.i(TAG, "media button: stop speech")
+                        stop(app)
+                    }
+                    return true
+                }
+
+                override fun onPause() { stop(app) }
+                override fun onStop() { stop(app) }
+                override fun onPlay() { stop(app) }
+                override fun onSkipToNext() { stop(app) }
+                override fun onSkipToPrevious() { stop(app) }
+            }, handler)
+            setPlaybackState(PlaybackState.Builder()
+                .setActions(PlaybackState.ACTION_PLAY_PAUSE or PlaybackState.ACTION_PAUSE or
+                    PlaybackState.ACTION_STOP or PlaybackState.ACTION_PLAY or
+                    PlaybackState.ACTION_SKIP_TO_NEXT or PlaybackState.ACTION_SKIP_TO_PREVIOUS)
+                .setState(PlaybackState.STATE_PLAYING, PlaybackState.PLAYBACK_POSITION_UNKNOWN, 1f)
+                .build())
+            isActive = true
+        }
+    }
+
+    private fun disableMediaButtons() {
+        mediaSession?.run {
+            isActive = false
+            release()
+        }
+        mediaSession = null
+    }
 
     private val attrs: AudioAttributes = AudioAttributes.Builder()
         .setUsage(AudioAttributes.USAGE_ASSISTANCE_NAVIGATION_GUIDANCE)
@@ -221,6 +273,7 @@ object Speaker {
             tts?.stop()
             releasePlayer()
             current = null
+            disableMediaButtons()
             abandonFocus()
         }
     }
@@ -231,6 +284,7 @@ object Speaker {
         if (head is Job.Remote && !head.done) return  // 合成待ち。完了時にまた pump される
         val job = queue.removeFirstOrNull()
         if (job == null) {
+            disableMediaButtons()
             // 連続で来たときにフォーカスを取り直さないよう、少し待ってから返す
             handler.postDelayed({ if (current == null && queue.isEmpty()) abandonFocus() }, 400)
             return
@@ -286,6 +340,7 @@ object Speaker {
             mp.setOnPreparedListener {
                 if (player === mp) {
                     mp.start()
+                    enableMediaButtons()
                     updatePlaybackVolume(mp)
                     handler.postDelayed(volumeMonitor, 100)
                 }

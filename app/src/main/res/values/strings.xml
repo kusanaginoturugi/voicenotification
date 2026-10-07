@@ -103,4 +103,12 @@
     <string name="chime_jnr_short">国鉄風オルゴール（短）</string>
     <string name="chime_jnr">国鉄風オルゴール（フル）</string>
     <string name="chime_custom">ファイルを指定</string>
+    <string name="voicevox_sync_rate">Android TTSの話速に合わせる</string>
+    <string name="voicevox_sync_rate_help">Androidの共通話速に追従します。声による速度感の差は補正倍率で調整できます（1.0が補正なし、大きいほど速い）。オフにすると手動速度に戻ります。エンジン独自の速度設定は反映できません。</string>
+    <string name="voicevox_rate_correction">VOICEVOXの話速補正: %1$.2f倍</string>
+    <string name="voicevox_effective_rate">Android: %1$.2f倍 → VOICEVOX: %2$.2f倍</string>
+    <string name="voicevox_rate_slower">遅く（0.5倍）</string>
+    <string name="voicevox_rate_faster">速く（2.0倍）</string>
+    <string name="voicevox_rate_reset">補正なし（1.0倍）に戻す</string>
+    <string name="voicevox_rate_center">基準（1.0倍）</string>
 </resources>

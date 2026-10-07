@@ -14,6 +14,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -52,6 +53,9 @@ import androidx.annotation.StringRes
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -114,6 +118,9 @@ fun Screen() {
     var speakerMenu by remember { mutableStateOf(false) }
     var speakerLoading by remember { mutableStateOf(false) }
     var ttsSpeed by remember { mutableStateOf(prefs.ttsSpeed.toString()) }
+    var syncAndroidRate by remember { mutableStateOf(prefs.ttsSyncAndroidRate) }
+    var rateCorrection by remember { mutableFloatStateOf(prefs.ttsRateCorrection) }
+    var androidRate by remember { mutableFloatStateOf(SpeechRate.androidRate(ctx)) }
     var ttsVolume by remember { mutableStateOf(prefs.ttsVolume.toString()) }
     var probeResult by remember { mutableStateOf("") }
 
@@ -136,6 +143,7 @@ fun Screen() {
                 calendarOk = CalendarSource.hasPermission(ctx)
                 exactOk = Scheduler.canScheduleExact(ctx)
                 postOk = hasPostPermission(ctx)
+                androidRate = SpeechRate.androidRate(ctx)
             }
         }
         owner.lifecycle.addObserver(obs)
@@ -293,9 +301,47 @@ fun Screen() {
                             }
                         },
                         label = { Text(stringResource(R.string.voicevox_speed)) },
+                        enabled = !syncAndroidRate,
                         singleLine = true,
                         modifier = Modifier.width(120.dp),
                     )
+                }
+            }
+            item {
+                SwitchRow(stringResource(R.string.voicevox_sync_rate), syncAndroidRate) {
+                    syncAndroidRate = it
+                    prefs.ttsSyncAndroidRate = it
+                    androidRate = SpeechRate.androidRate(ctx)
+                }
+                Text(stringResource(R.string.voicevox_sync_rate_help), style = MaterialTheme.typography.bodySmall)
+                if (syncAndroidRate) {
+                    Text(stringResource(R.string.voicevox_rate_correction, rateCorrection))
+                    Slider(
+                        value = SpeechRate.sliderFromCorrection(rateCorrection),
+                        onValueChange = {
+                            rateCorrection = SpeechRate.correctionFromSlider(it)
+                            prefs.ttsRateCorrection = rateCorrection
+                        },
+                        valueRange = 0f..1f,
+                        thumb = {
+                            Box(Modifier.size(16.dp, 28.dp).clip(RoundedCornerShape(8.dp))
+                                .background(MaterialTheme.colorScheme.primary))
+                        },
+                    )
+                    SpeechRateScale()
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text(stringResource(R.string.voicevox_rate_slower), style = MaterialTheme.typography.bodySmall)
+                        Text(stringResource(R.string.voicevox_rate_center), style = MaterialTheme.typography.bodySmall)
+                        Text(stringResource(R.string.voicevox_rate_faster), style = MaterialTheme.typography.bodySmall)
+                    }
+                    TextButton(onClick = {
+                        rateCorrection = 1f
+                        prefs.ttsRateCorrection = 1f
+                    }) { Text(stringResource(R.string.voicevox_rate_reset)) }
+                    Text(stringResource(R.string.voicevox_effective_rate,
+                        androidRate, SpeechRate.effective(true, prefs.ttsSpeed,
+                            androidRate, rateCorrection)),
+                        style = MaterialTheme.typography.bodySmall)
                 }
             }
             item {
@@ -607,6 +653,37 @@ private fun StatusRow(label: String, ok: Boolean, onFix: () -> Unit) {
     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
         Text(label, modifier = Modifier.weight(1f))
         if (ok) Text(stringResource(R.string.ok)) else Button(onClick = onFix) { Text(stringResource(R.string.button_settings)) }
+    }
+}
+
+/** スライダーと同じ逆変換で目盛位置を決める。つまみ幅16dpの半分を両端に取る。 */
+@Composable
+private fun SpeechRateScale() {
+    val marks = remember { listOf(0.5f to "0.5", 0.8f to "0.8", 1f to "1.0", 1.25f to "1.25", 2f to "2.0") }
+    val color = MaterialTheme.colorScheme.onSurfaceVariant
+    Layout(
+        content = {
+            marks.forEach { (_, label) -> Text(label, style = MaterialTheme.typography.bodySmall) }
+        },
+        modifier = Modifier.fillMaxWidth().drawBehind {
+            val inset = 8.dp.toPx()
+            marks.forEach { (rate, _) ->
+                val x = inset + (size.width - 2 * inset) * SpeechRate.sliderFromCorrection(rate)
+                drawLine(color, Offset(x, 0f), Offset(x, 6.dp.toPx()), 1.dp.toPx())
+            }
+        },
+    ) { measurables, constraints ->
+        val labels = measurables.map { it.measure(constraints.copy(minWidth = 0, minHeight = 0)) }
+        val inset = 8.dp.roundToPx()
+        val width = constraints.maxWidth
+        val top = 8.dp.roundToPx()
+        layout(width, top + (labels.maxOfOrNull { it.height } ?: 0)) {
+            labels.forEachIndexed { index, label ->
+                val center = inset + (width - 2 * inset) * SpeechRate.sliderFromCorrection(marks[index].first)
+                val left = (center - label.width / 2f).toInt().coerceIn(0, (width - label.width).coerceAtLeast(0))
+                label.placeRelative(left, top)
+            }
+        }
     }
 }
 

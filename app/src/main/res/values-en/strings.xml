@@ -103,4 +103,12 @@
     <string name="chime_jnr_short">Railway music box (short)</string>
     <string name="chime_jnr">Railway music box (full)</string>
     <string name="chime_custom">Choose a file</string>
+    <string name="voicevox_sync_rate">Match Android TTS speech rate</string>
+    <string name="voicevox_sync_rate_help">Follow the Android system speech rate. Adjust the correction multiplier for differences between voices (1.0 means no correction; higher is faster). Turning this off restores the manual speed. Engine-specific speed settings cannot be read.</string>
+    <string name="voicevox_rate_correction">VOICEVOX rate correction: %1$.2f×</string>
+    <string name="voicevox_effective_rate">Android: %1$.2f× → VOICEVOX: %2$.2f×</string>
+    <string name="voicevox_rate_slower">Slower (0.5×)</string>
+    <string name="voicevox_rate_faster">Faster (2.0×)</string>
+    <string name="voicevox_rate_reset">Reset correction (1.0×)</string>
+    <string name="voicevox_rate_center">Default (1.0×)</string>
 </resources>

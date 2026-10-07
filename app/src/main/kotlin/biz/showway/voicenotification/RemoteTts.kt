@@ -33,11 +33,11 @@ object RemoteTts {
         File(context.cacheDir, CACHE_DIR_NAME).apply { mkdirs() }
 
     /** 話者・速度・音量・本文が同じなら同じ名前になる */
-    private fun cacheFile(context: Context, prefs: Prefs, text: String): File {
-        val seed = "${prefs.ttsSpeed}|${prefs.ttsVolume}|$text"
+    private fun cacheFile(context: Context, speaker: Int, speed: Float, volume: Float, text: String): File {
+        val seed = "$speed|$volume|$text"
         val hash = MessageDigest.getInstance("SHA-1").digest(seed.toByteArray())
             .joinToString("") { "%02x".format(it) }.take(16)
-        return File(cacheDir(context), "${prefs.ttsSpeaker}_$hash.wav")
+        return File(cacheDir(context), "${speaker}_$hash.wav")
     }
 
     fun clearCache(context: Context): Int {
@@ -106,8 +106,12 @@ object RemoteTts {
     fun synthesize(context: Context, prefs: Prefs, text: String): File? {
         val list = urls(prefs)
         if (list.isEmpty()) return null
+        // 同じスナップショットをキャッシュと全サーバーへの合成要求に使う。
+        val speaker = prefs.ttsSpeaker
+        val speed = SpeechRate.resolve(context, prefs)
+        val volume = prefs.ttsVolume
         val cacheable = text.length <= CACHE_MAX_CHARS
-        val cached = if (cacheable) cacheFile(context, prefs, text) else null
+        val cached = if (cacheable) cacheFile(context, speaker, speed, volume, text) else null
         if (cached != null && cached.length() > 0) {
             cached.setLastModified(System.currentTimeMillis())   // LRU 用
             Log.i(TAG, "cache hit: ${cached.name}")
@@ -116,7 +120,7 @@ object RemoteTts {
         val ordered = lastGood?.let { g -> listOf(g) + list.filter { it != g } } ?: list
         for (base in ordered) {
             try {
-                val f = synthesizeAt(context, base, prefs.ttsSpeaker, prefs.ttsSpeed, prefs.ttsVolume, text)
+                val f = synthesizeAt(context, base, speaker, speed, volume, text)
                 lastGood = base
                 if (cached == null) return f
                 return if (f.renameTo(cached)) {

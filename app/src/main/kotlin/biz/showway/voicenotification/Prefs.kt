@@ -138,6 +138,14 @@ class Prefs(context: Context) {
         get() = sp.getFloat("tts_speed", 1.0f)
         set(v) = sp.edit().putFloat("tts_speed", v).apply()
 
+    var ttsSyncAndroidRate: Boolean
+        get() = sp.getBoolean("tts_sync_android_rate", false)
+        set(v) = sp.edit().putBoolean("tts_sync_android_rate", v).apply()
+
+    var ttsRateCorrection: Float
+        get() = sp.getFloat("tts_rate_correction", 1.0f).takeIf { it.isFinite() && it > 0f }?.coerceIn(0.5f, 2f) ?: 1f
+        set(v) = sp.edit().putFloat("tts_rate_correction", v).apply()
+
     /** 読み上げ済みの予定。"eventId:beginMillis" の集合 */
     var announcedEvents: Set<String>
         get() = sp.getStringSet("announced_events", emptySet()) ?: emptySet()
