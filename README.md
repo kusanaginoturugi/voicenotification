@@ -128,7 +128,7 @@ https://www.nhk.or.jp/rss/news/cat0.xml
 - 要約だけ試すなら `tools/news_summary.sh && cat ~/.local/share/voicenews/news.txt`
 - 要約の時刻はアプリ側のニュース時刻に合わせて、`tools/systemd/voicenews.timer` の `OnCalendar` を 5 分前に揃える
 - RSS、モデル、件数、プロンプトは環境変数 `RSS_URLS`（空白区切りで複数可）`LLM_URL` `LLM_MODEL` `NEWS_COUNT` `PROMPT` で差し替える。常用するなら `systemctl --user edit voicenews.service` で `Environment=` を足す
-- 既定モデルは `gemma-4-12b-it-qat-imatrix`。日本語 imatrix 量子化で、思考モードがオフ。llama-server は同時に 1 モデルしか載せない設定なので、ブラウザ拡張と同じモデルにしてモデル入れ替えの待ちを避けている
+- 既定モデルは `gemma-4-E4B-it-qat`（思考モードはオフで呼ぶ）。voice-chat など同じ PC のほかの用途とモデルをそろえ、別のモデルどうしが VRAM を取り合って読み込めなくなるのを避けている。以前は `gemma-4-12b-it-qat-imatrix`
 - 思考モードが有効なモデルだと出力が空になるので、スクリプトで `enable_thinking:false` を渡している
 - LLM は 300 秒でタイムアウト。長さ制限で切れたら最後の「。」までに揃える
 - `news.txt` が 2 時間より古ければ要約が止まっているとみなして、アプリは次の URL（RSS）に回す

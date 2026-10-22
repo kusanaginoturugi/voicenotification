@@ -6,7 +6,7 @@ set -eu
 
 RSS_URLS=${RSS_URLS:-${RSS_URL:-https://www.nhk.or.jp/rss/news/cat0.xml}}   # 空白区切りで複数可
 LLM_URL=${LLM_URL:-http://127.0.0.1:8080/v1/chat/completions}
-LLM_MODEL=${LLM_MODEL:-gemma-4-12b-it-qat-imatrix}
+LLM_MODEL=${LLM_MODEL:-gemma-4-E4B-it-qat}
 LLM_TIMEOUT=${LLM_TIMEOUT:-300}
 NEWS_COUNT=${NEWS_COUNT:-7}
 NEWS_OUT=${NEWS_OUT:-$HOME/.local/share/voicenews/news.txt}
