@@ -25,13 +25,14 @@ WF-C700Nは標準設定で右ボタン1回が再生／一時停止。LE302は左
 ## 必要なもの
 
 - JDK 17 以上（Gradle 9 / AGP 9 の要件）
-- Android SDK（`local.properties` の `sdk.dir`、既定は `~/Android/Sdk`）
+- Android SDK（環境変数 `ANDROID_HOME`。プロジェクト直下の `local.properties` に `sdk.dir` を書いてもよい）
 - 端末側: Android 12 (API 31) 以上、日本語 TTS（Google 音声サービス）
 
 ## ビルドと入れ方
 
 ```sh
 export JAVA_HOME=/usr/lib/jvm/java-25-openjdk   # 17 以上ならどれでも
+export ANDROID_HOME=$HOME/Android/Sdk
 ./gradlew assembleDebug
 adb install -r app/build/outputs/apk/debug/app-debug.apk
 ```

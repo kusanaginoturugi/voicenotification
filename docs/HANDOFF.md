@@ -193,7 +193,7 @@ Android で以下を日本語 TTS で読み上げる常駐アプリ。
 ### ビルド環境
 
 - JDK 17 以上が必要。`JAVA_HOME=/usr/lib/jvm/java-25-openjdk`
-- SDK は `local.properties` の `sdk.dir`（git 管理外）
+- SDK は `~/.zshenv` の `ANDROID_HOME=$HOME/Android/Sdk` で渡す。`local.properties`（git 管理外）は置いていない
 - 実機は Pixel 8a。`adb install -r app/build/outputs/apk/debug/app-debug.apk`
 
 ### 設計メモ
