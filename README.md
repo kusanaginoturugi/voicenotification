@@ -31,7 +31,7 @@ WF-C700Nは標準設定で右ボタン1回が再生／一時停止。LE302は左
 ## ビルドと入れ方
 
 ```sh
-export JAVA_HOME=/usr/lib/jvm/java-21-openjdk   # 17 以上ならどれでも
+export JAVA_HOME=/usr/lib/jvm/java-25-openjdk   # 17 以上ならどれでも
 ./gradlew assembleDebug
 adb install -r app/build/outputs/apk/debug/app-debug.apk
 ```
