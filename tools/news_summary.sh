@@ -52,7 +52,10 @@ else
       '{model:$m, messages:[{role:"system",content:$sys},{role:"user",content:$u}],
         temperature:0.3, max_tokens:600, chat_template_kwargs:{enable_thinking:false}}' |
       curl -fsS --max-time "$LLM_TIMEOUT" "$LLM_URL" -H 'Content-Type: application/json' -d @- > "$work/resp.json"
-    jq -r '.choices[0].message.content // ""' "$work/resp.json" | sed '/^[[:space:]]*$/d' > "$work/out.txt"
+    # 1 件ごとに「ニュースです。」を付けてくることがあるので、先頭の 1 回だけにする
+    jq -r '.choices[0].message.content // ""' "$work/resp.json" |
+      sed -e 's/ニュースです。//g' -e 's/^[[:space:]]*//' -e '/^[[:space:]]*$/d' |
+      sed '1s/^/ニュースです。/' > "$work/out.txt"
     [ -s "$work/out.txt" ] || { echo "empty summary" >&2; exit 1; }
     # 長さ制限で切れていたら、最後の「。」までに揃えて文の途中で終わらないようにする
     if [ "$(jq -r '.choices[0].finish_reason' "$work/resp.json")" = length ]; then

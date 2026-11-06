@@ -206,6 +206,7 @@ Android で以下を日本語 TTS で読み上げる常駐アプリ。
 - 平文 HTTP を使うため `usesCleartextTraffic="true"`。Tailscale 内でしか使わない前提
 - ニュース URL は改行区切りで複数。レスポンスが `<` で始まれば RSS / Atom としてパース、それ以外はプレーンテキストとしてそのまま読む
 - プレーンテキストは `Last-Modified` が 2 時間より古ければ使わない（要約側の停止検知）
+- ニュース要約の LocalLLM は `gemma-4-E4B-it-qat` に統一（voice-input / voice-chat と同じ。2026-10-22 に 12B imatrix から変更）。作業記録にある 12B の記述は当時のもの。E4B は 1 件ごとに「ニュースです。」を付けたり、`表記[[読み|読み]]` と崩れた注釈を返したりするので、`news_summary.sh` と `Speech.sanitize` で吸収している
 - adb からの操作: サービスは非公開だが `adb shell run-as biz.showway.voicenotification am start-foreground-service --user 0 -n biz.showway.voicenotification/.VoiceService -a <ACTION>` なら通る（`--user 0` がないと権限エラー）
 
 ### 未確認・既知の問題

@@ -20,8 +20,11 @@ object Speech {
      * 表記の始まりは決められないので、読みの方を捨てて二度読みを防ぐ
      */
     private val BARE_RUBY = Regex("""\[\[[ァ-ヺー・]{1,64}]]""")
+    /** 同じく しんきん共同センター[[シンキン…|シンキン…]] のように、表記欄まで読みになっている形 */
+    private val KANA_RUBY = Regex("""\[\[[ぁ-ゖァ-ヺー・]{1,64}\|[ァ-ヺー・]{1,64}]]""")
 
     fun sanitize(context: Context, text: String): String = text
+        .replace(KANA_RUBY, "")
         .replace(RUBY) { it.groupValues[1] }
         .replace(BARE_RUBY, "")
         .replace(URL, context.getString(R.string.speech_link))
