@@ -345,18 +345,22 @@ fun Screen() {
                 }
             }
             item {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                    OutlinedButton(onClick = {
-                        probeResult = ctx.getString(R.string.cache_cleared, RemoteTts.clearCache(ctx))
-                    }) { Text(stringResource(R.string.button_clear_cache)) }
-                    OutlinedButton(onClick = {
-                        probeResult = ctx.getString(R.string.checking)
-                        Thread {
-                            val r = RemoteTts.probe(prefs).joinToString("\n") { (u, v) -> "$v  $u" }
-                            (ctx as? ComponentActivity)?.runOnUiThread { probeResult = r.ifEmpty { ctx.getString(R.string.empty_url) } }
-                        }.start()
-                    }) { Text(stringResource(R.string.button_connection_test)) }
-                    Text(probeResult, style = MaterialTheme.typography.bodySmall)
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                        OutlinedButton(onClick = {
+                            probeResult = ctx.getString(R.string.cache_cleared, RemoteTts.clearCache(ctx))
+                        }) { Text(stringResource(R.string.button_clear_cache)) }
+                        OutlinedButton(onClick = {
+                            probeResult = ctx.getString(R.string.checking)
+                            Thread {
+                                val r = RemoteTts.probe(prefs).joinToString("\n") { (u, v) -> "$v  $u" }
+                                (ctx as? ComponentActivity)?.runOnUiThread { probeResult = r.ifEmpty { ctx.getString(R.string.empty_url) } }
+                            }.start()
+                        }) { Text(stringResource(R.string.button_connection_test)) }
+                    }
+                    if (probeResult.isNotEmpty()) {
+                        Text(probeResult, style = MaterialTheme.typography.bodySmall)
+                    }
                 }
             }
             item {

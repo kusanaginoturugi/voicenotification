@@ -47,8 +47,8 @@
     <string name="empty_url">URL is empty</string>
     <string name="button_connection_test">Test connection</string>
     <string name="mute_in_silent">Skip automatic speech in silent or vibrate mode (buttons still play)</string>
-    <string name="built_in_speaker_volume">Built-in speaker speech limit %1$d%%</string>
-    <string name="built_in_speaker_volume_help">A ceiling relative to maximum phone volume. Lower volume is not reduced again. Headphone, Bluetooth and USB output use normal volume.</string>
+    <string name="built_in_speaker_volume">Built-in speaker speech cap: %1$d%% of max volume</string>
+    <string name="built_in_speaker_volume_help">Not relative to the current volume. Caps speech at this share of the speaker\'s maximum volume. Quieter settings play unchanged. Headphone, Bluetooth and USB output use normal volume.</string>
     <string name="pause_music">Pause music for all speech</string>
     <string name="pause_music_long">Pause music for long speech (duck for short speech)</string>
     <string name="hourly_chime">Read the time and events within the next hour every hour</string>
